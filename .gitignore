@@ -32,6 +32,8 @@ build
 # Ignore Kotlin plugin data
 .kotlin
 
-app/frontend/dist
-app/frontend/node_modules
-app/build
+#app/frontend/dist
+#app/frontend/node_modules
+#app/build
+#.idea
+#.intellijPlatform
