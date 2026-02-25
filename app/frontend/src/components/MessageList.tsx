@@ -1,0 +1,140 @@
+import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { Message } from './ChatPanel'
+import AgentIcon, { getAgentMeta } from './AgentIcon'
+
+interface ParsedUserMention {
+  mentionKey: string | null
+  isDebate: boolean
+  rest: string
+}
+
+function parseUserMention(content: string): ParsedUserMention {
+  const match = content.match(/^\[@(all|claude|gemini|codex)(?:\s+(debate))?\]\s*/)
+  if (!match) return { mentionKey: null, isDebate: false, rest: content }
+  return {
+    mentionKey: match[1],
+    isDebate: match[2] === 'debate',
+    rest: content.slice(match[0].length),
+  }
+}
+
+interface Props {
+  messages: Message[]
+}
+
+interface CodeBlockProps {
+  code: string
+  language: string
+}
+
+function CodeBlock({ code, language }: CodeBlockProps) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1200)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  return (
+    <div className="code-block-shell">
+      <div className="code-block-toolbar">
+        <span className="code-lang-badge">{language}</span>
+        <button type="button" className={`code-copy-btn ${copied ? 'copied' : ''}`} onClick={handleCopy}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={vscDarkPlus}
+        language={language}
+        PreTag="div"
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  )
+}
+
+export default function MessageList({ messages }: Props) {
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  // 새 메시지 시 자동 스크롤
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  if (messages.length === 0) {
+    return (
+      <div className="message-list empty">
+        <p>Ask anything. Your conversation is preserved across sessions.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="message-list">
+      {messages.map((msg) => {
+        const meta = msg.cli ? getAgentMeta(msg.cli) : null
+        const userMention = msg.role === 'user' ? parseUserMention(msg.content) : null
+        const displayContent = userMention?.mentionKey ? userMention.rest : msg.content
+
+        return (
+          <div
+            key={msg.id}
+            className={`message ${msg.role} ${msg.cli ? `agent-${msg.cli}` : ''} ${msg.variant ? `variant-${msg.variant}` : ''} ${msg.isStreaming ? 'is-streaming' : ''}`}
+          >
+            {userMention?.mentionKey && (
+              <div className="message-user-meta">
+                <span className={`user-mention-tag user-mention-${userMention.mentionKey}`} aria-label={`to @${userMention.mentionKey}`}>
+                  @{userMention.mentionKey}
+                </span>
+                {userMention.isDebate && <span className="user-debate-label">debate</span>}
+              </div>
+            )}
+            {msg.cli && meta && (
+              <div className="message-head">
+                <div className={`agent-badge agent-${meta.className}`}>
+                  <span className="agent-badge-icon" aria-hidden="true"><AgentIcon cli={msg.cli} size={12} /></span>
+                  <span className="agent-badge-label">{meta.label}</span>
+                </div>
+                <div className="message-cli">@{msg.cli}</div>
+                {msg.isStreaming && (
+                  <div className="thinking-chip" aria-live="polite">
+                    <span>working</span>
+                    <span className="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
+                  </div>
+                )}
+              </div>
+            )}
+            <ReactMarkdown
+              components={{
+                code({ className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || '')
+                  const code = String(children).replace(/\n$/, '')
+                  return match ? (
+                    <CodeBlock code={code} language={match[1]} />
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  )
+                },
+              }}
+            >
+              {displayContent}
+            </ReactMarkdown>
+            {msg.isStreaming && <span className="cursor" />}
+          </div>
+        )
+      })}
+      <div ref={bottomRef} />
+    </div>
+  )
+}
