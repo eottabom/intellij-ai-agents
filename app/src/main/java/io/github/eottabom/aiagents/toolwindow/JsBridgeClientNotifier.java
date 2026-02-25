@@ -1,12 +1,16 @@
 package io.github.eottabom.aiagents.toolwindow;
 
+import com.google.gson.Gson;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.ui.jcef.JBCefBrowser;
 
 import java.util.List;
 
 final class JsBridgeClientNotifier {
 
+    private static final Logger logger = Logger.getInstance(JsBridgeClientNotifier.class);
+    private static final Gson GSON = new Gson();
     private final JBCefBrowser browser;
 
     JsBridgeClientNotifier(JBCefBrowser browser) {
@@ -23,8 +27,7 @@ final class JsBridgeClientNotifier {
     }
 
     void sendInstalledProviders(List<String> providers) {
-        String json = "[" + String.join(",", providers.stream().map(c -> "\"" + c + "\"").toList()) + "]";
-        js("window.__onInstalledClis && window.__onInstalledClis(%s)".formatted(json));
+        js("window.__onInstalledClis && window.__onInstalledClis(%s)".formatted(GSON.toJson(providers)));
     }
 
     void sendProjectRefs(String refsJson) {

@@ -67,7 +67,7 @@ final class AiProviderParsers {
             return StreamChunk.done(obj.get("thread_id").getAsString());
         }
         if ("turn.started".equals(type)) {
-            return StreamChunk.done(null);
+            return null;
         }
         if ("error".equals(type) && obj.has("message")) {
             return StreamChunk.error(obj.get("message").getAsString());
