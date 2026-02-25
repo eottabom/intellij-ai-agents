@@ -1,0 +1,27 @@
+<idea-plugin>
+    <id>io.github.eottabom.aiagents</id>
+    <name>AI Agents</name>
+    <version>1.0.0</version>
+    <vendor>eottabom</vendor>
+
+    <description>Interactive AI chat with Claude, Gemini, and Codex CLI inside IntelliJ IDEA.</description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+
+        <toolWindow
+            id="AI Agents"
+            anchor="right"
+            secondary="false"
+            icon="/icons/toolwindow.svg"
+            factoryClass="io.github.eottabom.aiagents.toolwindow.AiAgentToolWindowFactory"/>
+
+        <applicationConfigurable
+            parentId="tools"
+            id="io.github.eottabom.aiagents.settings.AiAgentSettingsConfigurable"
+            displayName="AI Agents"
+            instance="io.github.eottabom.aiagents.settings.AiAgentSettingsConfigurable"/>
+
+    </extensions>
+</idea-plugin>
