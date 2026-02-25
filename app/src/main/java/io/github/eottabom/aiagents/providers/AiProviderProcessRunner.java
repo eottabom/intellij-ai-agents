@@ -89,7 +89,7 @@ final class AiProviderProcessRunner {
         }
     }
 
-    private static Thread drainStderr(AiProvider provider, Process process, StringBuffer buf) {
+    private static Thread drainStderr(AiProvider provider, Process process, StringBuilder buf) {
         Thread thread = new Thread(() -> {
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
@@ -184,16 +184,11 @@ final class AiProviderProcessRunner {
 
                 StreamChunk chunk = provider.parseLine(trimmed);
                 if (chunk == null) {
-                    if (trimmed.startsWith("{")) {
+                    if (trimmed.startsWith("{") || state.sawStructuredOutput.get()) {
                         continue;
                     }
-                    if (!state.sawStructuredOutput.get()) {
-                        if (plainTextBuf.length() < PLAINTEXT_BUFFER_LIMIT) {
-                            plainTextBuf.append(trimmed).append('\n');
-                        }
-                    } else {
-                        onChunk.accept(StreamChunk.text(trimmed));
-                        state.sawOutput.set(true);
+                    if (plainTextBuf.length() < PLAINTEXT_BUFFER_LIMIT) {
+                        plainTextBuf.append(trimmed).append('\n');
                     }
                     continue;
                 }
@@ -304,6 +299,6 @@ final class AiProviderProcessRunner {
         final AtomicBoolean sawOutput = new AtomicBoolean(false);
         final AtomicBoolean sawStructuredOutput = new AtomicBoolean(false);
         final AtomicLong lastOutputAt = new AtomicLong(System.currentTimeMillis());
-        final StringBuffer stderrBuf = new StringBuffer();
+        final StringBuilder stderrBuf = new StringBuilder();
     }
 }

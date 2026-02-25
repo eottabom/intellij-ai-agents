@@ -1,8 +1,7 @@
 package io.github.eottabom.aiagents.toolwindow;
 
 import com.intellij.ide.util.PropertiesComponent;
-
-import java.util.List;
+import io.github.eottabom.aiagents.providers.AiProvider;
 
 /**
  * CLI 세션 ID 영구 저장 (IntelliJ PropertiesComponent 기반)
@@ -24,8 +23,8 @@ class SessionStore {
     }
 
     void clearAll() {
-        for (String name : List.of("claude", "gemini", "codex")) {
-            clear(name);
+        for (AiProvider provider : AiProvider.values()) {
+            clear(provider.cliName);
         }
     }
 }

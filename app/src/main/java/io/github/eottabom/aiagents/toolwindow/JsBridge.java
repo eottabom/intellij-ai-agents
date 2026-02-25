@@ -3,6 +3,7 @@ package io.github.eottabom.aiagents.toolwindow;
 import io.github.eottabom.aiagents.providers.AiProvider;
 import io.github.eottabom.aiagents.providers.StreamChunk;
 import com.intellij.openapi.Disposable;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
@@ -24,6 +25,7 @@ import java.util.regex.Pattern;
  */
 class JsBridge implements Disposable {
 
+    private static final Logger logger = Logger.getInstance(JsBridge.class);
     private static final Pattern AGENT_PREFIX_PATTERN =
             Pattern.compile("^\\s*@(?<cli>claude|gemini|codex)\\b\\s*(?<prompt>[\\s\\S]*)$", Pattern.CASE_INSENSITIVE);
     private final JBCefBrowser browser;
