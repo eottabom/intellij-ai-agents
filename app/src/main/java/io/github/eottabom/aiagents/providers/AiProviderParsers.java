@@ -3,22 +3,24 @@ package io.github.eottabom.aiagents.providers;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import java.util.Locale;
+
 final class AiProviderParsers {
 
     private AiProviderParsers() {
     }
 
     static StreamChunk parseClaudeLine(String line) {
-        JsonObject obj = AiProviderJsonUtils.tryParseJson(line);
+        var obj = AiProviderJsonUtils.tryParseJson(line);
         if (obj == null) {
             return null;
         }
 
-        String type = AiProviderJsonUtils.stringField(obj, "type");
-        String sessionId = AiProviderJsonUtils.stringField(obj, "session_id");
+        var type = AiProviderJsonUtils.stringField(obj, "type");
+        var sessionId = AiProviderJsonUtils.stringField(obj, "session_id");
 
         if ("assistant".equals(type) && obj.has("message")) {
-            StreamChunk chunk = parseClaudeAssistantMessage(obj.getAsJsonObject("message"));
+            var chunk = parseClaudeAssistantMessage(obj.getAsJsonObject("message"));
             if (chunk != null) {
                 return chunk;
             }
@@ -30,22 +32,30 @@ final class AiProviderParsers {
     }
 
     static StreamChunk parseGeminiLine(String line) {
-        JsonObject obj = AiProviderJsonUtils.tryParseJson(line);
+        var obj = AiProviderJsonUtils.tryParseJson(line);
         if (obj == null) {
             return null;
         }
 
-        String type = AiProviderJsonUtils.stringField(obj, "type");
+        var type = AiProviderJsonUtils.stringField(obj, "type");
+        var normalizedType = "";
+        if (type != null) {
+            normalizedType = type.toLowerCase(Locale.ROOT);
+        }
+        switch (normalizedType) {
+            case "error":
+                return parseGeminiError(obj);
+            case "init":
+                if (obj.has("session_id")) {
+                    return StreamChunk.done(obj.get("session_id").getAsString());
+                }
+                return null;
+            case "message":
+                return parseGeminiMessage(obj);
+            default:
+                break;
+        }
 
-        if ("error".equalsIgnoreCase(type)) {
-            return parseGeminiError(obj);
-        }
-        if ("init".equalsIgnoreCase(type) && obj.has("session_id")) {
-            return StreamChunk.done(obj.get("session_id").getAsString());
-        }
-        if ("message".equalsIgnoreCase(type)) {
-            return parseGeminiMessage(obj);
-        }
         if (obj.has("text")) {
             return StreamChunk.text(obj.get("text").getAsString());
         }
@@ -56,31 +66,38 @@ final class AiProviderParsers {
     }
 
     static StreamChunk parseCodexLine(String line) {
-        JsonObject obj = AiProviderJsonUtils.tryParseJson(line);
+        var obj = AiProviderJsonUtils.tryParseJson(line);
         if (obj == null) {
             return null;
         }
 
-        String type = AiProviderJsonUtils.stringField(obj, "type");
+        var type = AiProviderJsonUtils.stringField(obj, "type");
+        var normalizedType = "";
+        if (type != null) {
+            normalizedType = type;
+        }
+        switch (normalizedType) {
+            case "thread.started":
+                if (obj.has("thread_id")) {
+                    return StreamChunk.done(obj.get("thread_id").getAsString());
+                }
+                return null;
+            case "turn.started":
+            case "item.started":
+                return null;
+            case "error":
+                if (obj.has("message")) {
+                    return StreamChunk.error(obj.get("message").getAsString());
+                }
+                return null;
+            case "item.completed":
+                return parseCodexItem(obj);
+            case "turn.completed":
+                return StreamChunk.done(null);
+            default:
+                break;
+        }
 
-        if ("thread.started".equals(type) && obj.has("thread_id")) {
-            return StreamChunk.done(obj.get("thread_id").getAsString());
-        }
-        if ("turn.started".equals(type)) {
-            return null;
-        }
-        if ("error".equals(type) && obj.has("message")) {
-            return StreamChunk.error(obj.get("message").getAsString());
-        }
-        if ("item.started".equals(type)) {
-            return null;
-        }
-        if ("item.completed".equals(type)) {
-            return parseCodexItem(obj);
-        }
-        if ("turn.completed".equals(type)) {
-            return StreamChunk.done(null);
-        }
         if (obj.has("text")) {
             return StreamChunk.text(obj.get("text").getAsString());
         }
@@ -95,8 +112,8 @@ final class AiProviderParsers {
             return null;
         }
         for (JsonElement el : message.getAsJsonArray("content")) {
-            JsonObject item = el.getAsJsonObject();
-            String itemType = AiProviderJsonUtils.stringField(item, "type");
+            var item = el.getAsJsonObject();
+            var itemType = AiProviderJsonUtils.stringField(item, "type");
             if ("text".equals(itemType) && item.has("text")) {
                 return StreamChunk.text(item.get("text").getAsString());
             }
@@ -108,7 +125,7 @@ final class AiProviderParsers {
     }
 
     private static StreamChunk parseGeminiError(JsonObject obj) {
-        JsonElement msg = obj.get("message");
+        var msg = obj.get("message");
         if (msg == null) {
             return null;
         }
@@ -122,33 +139,52 @@ final class AiProviderParsers {
     }
 
     private static StreamChunk parseGeminiMessage(JsonObject obj) {
-        String role = AiProviderJsonUtils.stringField(obj, "role");
-        if (!("assistant".equalsIgnoreCase(role) || "model".equalsIgnoreCase(role))) {
+        var role = AiProviderJsonUtils.stringField(obj, "role");
+        var isAssistantRole = "assistant".equalsIgnoreCase(role);
+        var isModelRole = "model".equalsIgnoreCase(role);
+        var isSupportedRole = isAssistantRole || isModelRole;
+        if (!isSupportedRole) {
             return null;
         }
         if (!obj.has("content")) {
             return null;
         }
-        String text = AiProviderJsonUtils.extractGeminiText(obj.get("content"));
-        return (text != null && !text.isBlank()) ? StreamChunk.text(text) : null;
+        var text = AiProviderJsonUtils.extractGeminiText(obj.get("content"));
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        return StreamChunk.text(text);
     }
 
     private static StreamChunk parseCodexItem(JsonObject obj) {
         if (!obj.has("item") || !obj.get("item").isJsonObject()) {
             return null;
         }
-        JsonObject item = obj.getAsJsonObject("item");
-        String itemType = AiProviderJsonUtils.stringField(item, "type");
-        if ("agent_message".equals(itemType) && item.has("text")) {
-            return StreamChunk.text(item.get("text").getAsString());
+        var item = obj.getAsJsonObject("item");
+        var itemType = AiProviderJsonUtils.stringField(item, "type");
+        var normalizedItemType = "";
+        if (itemType != null) {
+            normalizedItemType = itemType;
         }
-        if ("command_execution".equals(itemType) && item.has("aggregated_output")) {
-            String output = item.get("aggregated_output").getAsString();
-            return output.isBlank() ? null : StreamChunk.text(output.trim());
-        }
-        if ("reasoning".equals(itemType)) {
-            return StreamChunk.toolUse("codex:reasoning");
-        }
-        return null;
+        return switch (normalizedItemType) {
+			case "agent_message" -> {
+				if (item.has("text")) {
+					yield StreamChunk.text(item.get("text").getAsString());
+				}
+				yield null;
+			}
+			case "command_execution" -> {
+				if (item.has("aggregated_output")) {
+					var output = item.get("aggregated_output").getAsString();
+                    if (output.isBlank()) {
+                        yield null;
+                    }
+                    yield StreamChunk.text(output.trim());
+				}
+				yield null;
+			}
+			case "reasoning" -> StreamChunk.toolUse("codex:reasoning");
+			default -> null;
+		};
     }
 }

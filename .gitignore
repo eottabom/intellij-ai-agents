@@ -38,3 +38,6 @@ app/frontend/.DS_Store
 app/build
 .idea
 .intellijPlatform
+
+.idea/**
+.intellijPlatform/**

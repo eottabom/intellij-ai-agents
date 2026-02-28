@@ -3,18 +3,19 @@ package io.github.eottabom.aiagents.toolwindow;
 import io.github.eottabom.aiagents.providers.AiProvider;
 import io.github.eottabom.aiagents.providers.StreamChunk;
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefJSQuery;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,7 +26,6 @@ import java.util.regex.Pattern;
  */
 class JsBridge implements Disposable {
 
-    private static final Logger logger = Logger.getInstance(JsBridge.class);
     private static final Pattern AGENT_PREFIX_PATTERN =
             Pattern.compile("^\\s*@(?<cli>claude|gemini|codex)\\b\\s*(?<prompt>[\\s\\S]*)$", Pattern.CASE_INSENSITIVE);
     private final JBCefBrowser browser;
@@ -35,6 +35,7 @@ class JsBridge implements Disposable {
     private final ExecutorService executor = Executors.newCachedThreadPool();
     private final Map<String, Future<?>> runningTasks = new ConcurrentHashMap<>();
     private final AtomicReference<String> projectRefsCache = new AtomicReference<>();
+    private final AtomicBoolean projectRefsScanInProgress = new AtomicBoolean(false);
     private final JBCefJSQuery jsQuery;
 
     JsBridge(JBCefBrowser browser, Project project) {
@@ -59,31 +60,51 @@ class JsBridge implements Disposable {
 
     private void handleMessage(String json) {
         try {
-            BridgeMessage msg = BridgeMessage.fromJson(json);
-            switch (msg.type()) {
-                case "chat"             -> handleChat(msg);
-                case "cancel"           -> handleCancel(msg);
-                case "getSession"       -> handleGetSession(msg);
-                case "clearSession"     -> handleClearSession(msg);
+            var bridgeMessage = BridgeMessage.fromJson(json);
+            switch (bridgeMessage.type()) {
+                case "chat"             -> handleChat(bridgeMessage);
+                case "cancel"           -> handleCancel(bridgeMessage);
+                case "getSession"       -> handleGetSession(bridgeMessage);
+                case "clearSession"     -> handleClearSession(bridgeMessage);
                 case "clearAllSessions" -> sessionStore.clearAll();
                 case "getProjectRefs"   -> sendProjectRefs();
             }
-        } catch (Exception e) {
-            notifier.sendError(null, e.getMessage() != null ? e.getMessage() : "Unknown error");
+        } catch (Exception bridgeException) {
+            var errorMessage = bridgeException.getMessage();
+            if (errorMessage == null) {
+                errorMessage = "Unknown error";
+            }
+            notifier.sendError(null, errorMessage);
         }
     }
 
     private void handleChat(BridgeMessage msg) {
         ParsedCommand parsed = parseCommand(msg.cli(), msg.prompt());
-        String providerName = parsed.providerName();
-        String rawPrompt = parsed.prompt() != null ? parsed.prompt().trim() : "";
+        String providerName = normalizeProviderName(parsed.providerName());
+        if (providerName == null) {
+            notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
+            return;
+        }
+        var rawPrompt = "";
+        if (parsed.prompt() != null) {
+            rawPrompt = parsed.prompt().trim();
+        }
         if ("/doctor".equals(rawPrompt)) {
             runDoctor(providerName);
             return;
         }
 
-        String mode = msg.mode() != null ? msg.mode().trim().toLowerCase() : "normal";
-        String prompt = "plan".equals(mode) ? wrapAsPlan(parsed.prompt()) : parsed.prompt();
+        var mode = "normal";
+        if (msg.mode() != null) {
+            mode = msg.mode().trim().toLowerCase(Locale.ROOT);
+        }
+
+        String prompt;
+        if ("plan".equals(mode)) {
+            prompt = wrapAsPlan(parsed.prompt());
+        } else {
+            prompt = parsed.prompt();
+        }
 
         if (prompt == null || prompt.isBlank()) {
             notifier.sendError(null, "Prompt is empty.");
@@ -140,7 +161,7 @@ class JsBridge implements Disposable {
             }
             case ERROR -> {
                 runningTasks.remove(providerName);
-                String details = state.output.toString().trim();
+                var details = state.output.toString().trim();
                 if (!details.isBlank()) {
                     notifier.sendChunk(providerName, details);
                 }
@@ -148,7 +169,7 @@ class JsBridge implements Disposable {
             }
             case DONE -> {
                 runningTasks.remove(providerName);
-                String details = state.output.toString().trim();
+                var details = state.output.toString().trim();
                 if (details.isBlank()) {
                     notifier.sendChunk(providerName, providerName.toUpperCase() + " CLI 사용 가능");
                 } else if (looksHealthyDoctorOutput(details)) {
@@ -162,7 +183,7 @@ class JsBridge implements Disposable {
     }
 
     private boolean looksHealthyDoctorOutput(String output) {
-        String lower = output.toLowerCase();
+        var lower = output.toLowerCase(Locale.ROOT);
         if (lower.contains("error") || lower.contains("failed") || lower.contains("not found")) {
             return false;
         }
@@ -194,25 +215,40 @@ class JsBridge implements Disposable {
     }
 
     private void handleCancel(BridgeMessage msg) {
-        cancelRunning(msg.cli());
-        notifier.sendDone(msg.cli());
+        String providerName = normalizeProviderName(msg.cli());
+        if (providerName == null) {
+            notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
+            return;
+        }
+        cancelRunning(providerName);
+        notifier.sendDone(providerName);
     }
 
     private void cancelRunning(String providerName) {
-        Future<?> task = runningTasks.remove(providerName);
+        var task = runningTasks.remove(providerName);
         if (task != null) {
             task.cancel(true);
         }
     }
 
     private void handleGetSession(BridgeMessage msg) {
-        String id = sessionStore.get(msg.cli());
-        notifier.sendSession(msg.cli(), id);
+        String providerName = normalizeProviderName(msg.cli());
+        if (providerName == null) {
+            notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
+            return;
+        }
+        var sessionId = sessionStore.get(providerName);
+        notifier.sendSession(providerName, sessionId);
     }
 
     private void handleClearSession(BridgeMessage msg) {
-        sessionStore.clear(msg.cli());
-        notifier.sendSessionCleared(msg.cli());
+        String providerName = normalizeProviderName(msg.cli());
+        if (providerName == null) {
+            notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
+            return;
+        }
+        sessionStore.clear(providerName);
+        notifier.sendSessionCleared(providerName);
     }
 
     void sendInstalledProviders(List<String> providers) {
@@ -220,41 +256,63 @@ class JsBridge implements Disposable {
     }
 
     void sendProjectRefs() {
-        String cached = projectRefsCache.get();
-        if (cached != null) {
-            notifier.sendProjectRefs(cached);
+        var cachedRefsJson = projectRefsCache.get();
+        if (cachedRefsJson != null) {
+            notifier.sendProjectRefs(cachedRefsJson);
             return;
         }
-        executor.submit(this::scanAndSendProjectRefs);
+        if (projectRefsScanInProgress.compareAndSet(false, true)) {
+            executor.submit(this::scanAndSendProjectRefs);
+        }
     }
 
     private void scanAndSendProjectRefs() {
-        String json = ProjectRefsCollector.collect(project);
-        if (json == null || json.isBlank()) {
-            return;
+        try {
+            var projectRefsJson = ProjectRefsCollector.collect(project);
+            if (projectRefsJson == null || projectRefsJson.isBlank()) {
+                return;
+            }
+            projectRefsCache.set(projectRefsJson);
+            notifier.sendProjectRefs(projectRefsJson);
+        } finally {
+            projectRefsScanInProgress.set(false);
         }
-        projectRefsCache.set(json);
-        notifier.sendProjectRefs(json);
     }
 
     @Override
     public void dispose() {
         executor.shutdownNow();
+        jsQuery.dispose();
     }
 
     // Utilities
 
     private ParsedCommand parseCommand(String fallbackCli, String rawPrompt) {
+        var normalizedFallbackCli = normalizeProviderName(fallbackCli);
         if (rawPrompt == null) {
-            return new ParsedCommand(fallbackCli, "");
+            return new ParsedCommand(normalizedFallbackCli, "");
         }
-        Matcher m = AGENT_PREFIX_PATTERN.matcher(rawPrompt);
-        if (!m.matches()) {
-            return new ParsedCommand(fallbackCli, rawPrompt);
+        var commandMatcher = AGENT_PREFIX_PATTERN.matcher(rawPrompt);
+        if (!commandMatcher.matches()) {
+            return new ParsedCommand(normalizedFallbackCli, rawPrompt);
         }
-        String cli = m.group("cli").toLowerCase();
-        String prompt = m.group("prompt");
-        return new ParsedCommand(cli, prompt != null ? prompt.trim() : "");
+        var commandCli = commandMatcher.group("cli").toLowerCase(Locale.ROOT);
+        var prompt = commandMatcher.group("prompt");
+        if (prompt == null) {
+            return new ParsedCommand(commandCli, "");
+        }
+        return new ParsedCommand(commandCli, prompt.trim());
+    }
+
+    private String normalizeProviderName(String providerName) {
+        if (providerName == null) {
+            return null;
+        }
+        var normalized = providerName.trim().toLowerCase(Locale.ROOT);
+        if (AiProvider.fromName(normalized) != null) {
+            return normalized;
+        }
+        return null;
     }
 
     private String wrapAsPlan(String prompt) {

@@ -70,43 +70,51 @@ public class AiAgentPanel {
     }
 
     private URL extractWebviewToTemp() {
-        String html = readResource("/webview/index.html");
+        var html = readTextResource("/webview/index.html");
         if (html == null) return null;
 
         try {
-            Path root = Files.createTempDirectory("ai-agents-webview-");
-            Path assetsDir = root.resolve("assets");
+            var root = Files.createTempDirectory("ai-agents-webview-");
+            var assetsDir = root.resolve("assets");
             Files.createDirectories(assetsDir);
 
             for (String relativePath : findAssetPaths(html)) {
-                String contents = readResource("/webview/" + relativePath);
+                var contents = readResourceBytes("/webview/" + relativePath);
                 if (contents == null) continue;
-                Path target = root.resolve(relativePath).normalize();
+                var target = root.resolve(relativePath).normalize();
                 if (!target.startsWith(root)) continue;
                 Files.createDirectories(target.getParent());
-                Files.writeString(target, contents, StandardCharsets.UTF_8);
+                Files.write(target, contents);
             }
 
             Files.writeString(root.resolve("index.html"), html, StandardCharsets.UTF_8);
             return root.resolve("index.html").toUri().toURL();
-        } catch (IOException e) {
+        } catch (IOException ioException) {
             return null;
         }
     }
 
     private List<String> findAssetPaths(String html) {
-        List<String> paths = new ArrayList<>();
-        Matcher matcher = Pattern.compile("(?:src|href)=[\"']\\./([^\"']+)[\"']", Pattern.CASE_INSENSITIVE)
+        var paths = new ArrayList<String>();
+        var matcher = Pattern.compile("(?:src|href)=[\"']\\./([^\"']+)[\"']", Pattern.CASE_INSENSITIVE)
                 .matcher(html);
         while (matcher.find()) paths.add(matcher.group(1));
         return paths;
     }
 
-    private String readResource(String path) {
-        try (InputStream in = getClass().getResourceAsStream(path)) {
-            if (in == null) return null;
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
+    private String readTextResource(String path) {
+        var bytes = readResourceBytes(path);
+        if (bytes == null) {
+            return null;
+        }
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private byte[] readResourceBytes(String path) {
+        try (InputStream resourceInputStream = getClass().getResourceAsStream(path)) {
+            if (resourceInputStream == null) return null;
+            return resourceInputStream.readAllBytes();
+        } catch (IOException ioException) {
             return null;
         }
     }

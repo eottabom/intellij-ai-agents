@@ -2,18 +2,23 @@ package io.github.eottabom.aiagents.toolwindow;
 
 import com.google.gson.Gson;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.ui.jcef.JBCefBrowser;
 
 import java.util.List;
+import java.util.Locale;
 
 record JsBridgeClientNotifier(JBCefBrowser browser) {
 
 	private static final Gson GSON = new Gson();
 
 	void sendSession(String cli, String sessionId) {
+		var resolvedSessionId = "";
+		if (sessionId != null) {
+			resolvedSessionId = sessionId;
+		}
+		var escapedSessionId = esc(resolvedSessionId);
 		js("window.__onSession && window.__onSession('%s','%s')"
-				.formatted(cli, sessionId != null ? sessionId : ""));
+				.formatted(esc(cli), escapedSessionId));
 	}
 
 	void sendSessionCleared(String cli) {
@@ -57,12 +62,15 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 	}
 
 	private String normalize(String cli, String error) {
-		String raw = error == null ? "Unknown error" : error.trim();
+		var raw = "Unknown error";
+		if (error != null) {
+			raw = error.trim();
+		}
 		if (raw.isBlank()) {
 			return "Unknown error";
 		}
 
-		String lower = raw.toLowerCase();
+		String lower = raw.toLowerCase(Locale.ROOT);
 		if (lower.contains("produced no output for")) {
 			return "Request stopped due to inactivity timeout. Retry with a simpler prompt.";
 		}
@@ -77,7 +85,10 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 				&& (lower.contains("login") || lower.contains("not authenticated"))) {
 			return cli + " CLI: run `" + cli + "` in your terminal to login, then retry.";
 		}
-		return raw.length() > 500 ? raw.substring(0, 500) + "..." : raw;
+		if (raw.length() > 500) {
+			return raw.substring(0, 500) + "...";
+		}
+		return raw;
 	}
 
 	private String esc(String text) {

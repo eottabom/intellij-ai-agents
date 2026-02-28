@@ -198,7 +198,15 @@ export default function ChatPanel({ installedClis }: Props) {
   }, [activeCli])
 
   useEffect(() => {
-    bridge.getProjectRefs()
+    const requestProjectRefs = () => bridge.getProjectRefs()
+
+    // Initial request + retry when Java bridge injection completes.
+    requestProjectRefs()
+    window.addEventListener('bridgeReady', requestProjectRefs)
+
+    return () => {
+      window.removeEventListener('bridgeReady', requestProjectRefs)
+    }
   }, [])
 
   const appendAssistant = (content: string, cli?: CliName, variant?: Message['variant']) => {
