@@ -23,24 +23,30 @@ final class AiProviderJsonUtils {
     }
 
     static String stringField(JsonObject obj, String key) {
-        return obj.has(key) ? obj.get(key).getAsString() : null;
+        if (!obj.has(key)) {
+            return null;
+        }
+        return obj.get(key).getAsString();
     }
 
-    static String extractGeminiText(JsonElement el) {
-        if (el == null || el.isJsonNull()) {
+    static String extractGeminiText(JsonElement jsonElement) {
+        if (jsonElement == null || jsonElement.isJsonNull()) {
             return null;
         }
 
-        return switch (elementKind(el)) {
-            case PRIMITIVE -> extractPrimitiveText(el.getAsJsonPrimitive());
-            case ARRAY -> extractArrayText(el.getAsJsonArray());
-            case OBJECT -> extractObjectText(el.getAsJsonObject());
+        return switch (elementKind(jsonElement)) {
+            case PRIMITIVE -> extractPrimitiveText(jsonElement.getAsJsonPrimitive());
+            case ARRAY -> extractArrayText(jsonElement.getAsJsonArray());
+            case OBJECT -> extractObjectText(jsonElement.getAsJsonObject());
             case OTHER -> null;
         };
     }
 
     private static String extractPrimitiveText(JsonPrimitive primitive) {
-        return primitive.isString() ? primitive.getAsString() : null;
+        if (!primitive.isString()) {
+            return null;
+        }
+        return primitive.getAsString();
     }
 
     private static String extractArrayText(JsonArray array) {
@@ -55,7 +61,10 @@ final class AiProviderJsonUtils {
             }
             sb.append(text);
         }
-        return sb.isEmpty() ? null : sb.toString();
+        if (sb.isEmpty()) {
+            return null;
+        }
+        return sb.toString();
     }
 
     private static String extractObjectText(JsonObject obj) {
@@ -90,14 +99,14 @@ final class AiProviderJsonUtils {
         return null;
     }
 
-    private static ElementKind elementKind(JsonElement el) {
-        if (el.isJsonPrimitive()) {
+    private static ElementKind elementKind(JsonElement jsonElement) {
+        if (jsonElement.isJsonPrimitive()) {
             return ElementKind.PRIMITIVE;
         }
-        if (el.isJsonArray()) {
+        if (jsonElement.isJsonArray()) {
             return ElementKind.ARRAY;
         }
-        if (el.isJsonObject()) {
+        if (jsonElement.isJsonObject()) {
             return ElementKind.OBJECT;
         }
         return ElementKind.OTHER;

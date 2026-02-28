@@ -18,6 +18,9 @@ repositories {
 
 dependencies {
     implementation(libs.gson)
+    implementation(libs.slf4j.api)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 
     intellijPlatform {
         intellijIdeaCommunity("2025.1")
@@ -60,6 +63,10 @@ tasks.register<Sync>("copyWebview") {
 }
 
 tasks.named("processResources") { dependsOn("copyWebview") }
+
+tasks.test {
+    useJUnitPlatform()
+}
 
 tasks.register("configureRunIdeSandbox") {
     doLast {

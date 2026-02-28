@@ -1,6 +1,7 @@
 package io.github.eottabom.aiagents.providers;
 
-import com.intellij.openapi.diagnostic.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -8,6 +9,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -15,7 +17,7 @@ import java.util.function.Consumer;
 
 final class AiProviderProcessRunner {
 
-    private static final Logger logger = Logger.getInstance(AiProviderProcessRunner.class);
+    private static final Logger logger = LoggerFactory.getLogger(AiProviderProcessRunner.class);
     private static final int STDERR_BUFFER_LIMIT = 8_000;
     private static final int PLAINTEXT_BUFFER_LIMIT = 8_000;
     private static final long WATCHDOG_POLL_MS = 1_000;
@@ -59,25 +61,33 @@ final class AiProviderProcessRunner {
             String workDir,
             Consumer<StreamChunk> onChunk
     ) {
-        List<String> argv = new ArrayList<>();
+        var argv = new ArrayList<String>();
         argv.add(provider.cliName);
         argv.addAll(provider.buildRunArgs(prompt, sessionId, workDir));
-        List<String> command = wrapForShell(argv);
+        var command = wrapForShell(argv);
 
-        logger.warn("run start=" + provider.cliName + " promptLen=" + (prompt != null ? prompt.length() : 0));
+        var promptLength = 0;
+        if (prompt != null) {
+            promptLength = prompt.length();
+        }
+        logger.warn("run start={} promptLen={}", provider.cliName, promptLength);
 
         try {
-            ProcessBuilder pb = new ProcessBuilder(command);
-            pb.directory(new File(workDir != null ? workDir : System.getProperty("user.home")));
+            var pb = new ProcessBuilder(command);
+            var processWorkDir = System.getProperty("user.home");
+            if (workDir != null) {
+                processWorkDir = workDir;
+            }
+            pb.directory(new File(processWorkDir));
             pb.environment().putAll(System.getenv());
             pb.redirectErrorStream(false);
 
-            Process process = pb.start();
+            var process = pb.start();
             closeStdin(process);
             return process;
-        } catch (Exception e) {
+        } catch (Exception startupException) {
             onChunk.accept(StreamChunk.error(
-                    "Failed to start " + provider.cliName + ": " + e.getMessage()));
+                    "Failed to start " + provider.cliName + ": " + startupException.getMessage()));
             return null;
         }
     }
@@ -123,7 +133,7 @@ final class AiProviderProcessRunner {
                 }
                 long idleMs = System.currentTimeMillis() - state.lastOutputAt.get();
                 if (idleMs > timeout && state.timedOut.compareAndSet(false, true)) {
-                    logger.warn("timeout name=" + provider.cliName + " idleMs=" + idleMs);
+                    logger.warn("timeout name={} idleMs={}", provider.cliName, idleMs);
                     process.destroyForcibly();
                     onChunk.accept(StreamChunk.error(
                             provider.cliName + " produced no output for "
@@ -139,12 +149,11 @@ final class AiProviderProcessRunner {
 
     private static Thread watchForCancellation(AiProvider provider, Process process) {
         Thread caller = Thread.currentThread();
-        process.onExit().thenRun(caller::interrupt);
 
         Thread thread = new Thread(() -> {
             while (process.isAlive()) {
                 if (caller.isInterrupted()) {
-                    logger.warn("cancel requested name=" + provider.cliName);
+                    logger.warn("cancel requested name={}", provider.cliName);
                     process.destroyForcibly();
                     return;
                 }
@@ -225,7 +234,7 @@ final class AiProviderProcessRunner {
             int code = process.waitFor();
             stderrThread.join(200);
             return code;
-        } catch (InterruptedException e) {
+        } catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
             return -1;
         }
@@ -263,18 +272,20 @@ final class AiProviderProcessRunner {
             return argv;
         }
 
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < argv.size(); i++) {
-            if (i > 0) {
-                sb.append(' ');
+        var shellCommand = new StringBuilder();
+        for (int argumentIndex = 0; argumentIndex < argv.size(); argumentIndex++) {
+            if (argumentIndex > 0) {
+                shellCommand.append(' ');
             }
-            sb.append('\'').append(argv.get(i).replace("'", "'\"'\"'")).append('\'');
+            shellCommand.append('\'').append(argv.get(argumentIndex).replace("'", "'\"'\"'")).append('\'');
         }
-        return List.of("/bin/bash", "-l", "-c", sb.toString());
+        return List.of("/bin/bash", "-l", "-c", shellCommand.toString());
     }
 
     private static boolean isWindows() {
-        return System.getProperty("os.name", "").toLowerCase().contains("win");
+        var osName = System.getProperty("os.name", "");
+        var normalizedOsName = osName.toLowerCase(Locale.ROOT);
+        return normalizedOsName.contains("win");
     }
 
     private static boolean isNoiseLine(String line) {
@@ -288,7 +299,7 @@ final class AiProviderProcessRunner {
     private static boolean waitForExitOrInterrupt(Process process, long pollMs) {
         try {
             return process.waitFor(pollMs, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
             return true;
         }
