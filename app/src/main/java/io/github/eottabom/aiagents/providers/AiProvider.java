@@ -1,5 +1,7 @@
 package io.github.eottabom.aiagents.providers;
 
+import io.github.eottabom.aiagents.settings.AiAgentSettings;
+
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -9,7 +11,9 @@ public enum AiProvider {
 
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
-            return AiProviderArgsBuilder.buildClaudeArgs(prompt, sessionId, workDir);
+            var settings = AiAgentSettings.getInstance();
+            boolean skip = settings != null && settings.isSkipPermissions();
+            return AiProviderArgsBuilder.buildClaudeArgs(prompt, sessionId, workDir, skip);
         }
 
         @Override
@@ -19,7 +23,8 @@ public enum AiProvider {
 
         @Override
         public long timeoutMs() {
-            return 180_000;
+            var settings = AiAgentSettings.getInstance();
+            return settings != null ? settings.getClaudeTimeoutSec() * 1000L : 180_000;
         }
     },
 
@@ -27,7 +32,9 @@ public enum AiProvider {
 
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
-            return AiProviderArgsBuilder.buildGeminiArgs(prompt, sessionId);
+            var settings = AiAgentSettings.getInstance();
+            boolean yolo = settings != null && settings.isGeminiYoloMode();
+            return AiProviderArgsBuilder.buildGeminiArgs(prompt, sessionId, yolo);
         }
 
         @Override
@@ -37,7 +44,8 @@ public enum AiProvider {
 
         @Override
         public long timeoutMs() {
-            return 60_000;
+            var settings = AiAgentSettings.getInstance();
+            return settings != null ? settings.getGeminiTimeoutSec() * 1000L : 60_000;
         }
     },
 
@@ -45,12 +53,20 @@ public enum AiProvider {
 
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
-            return AiProviderArgsBuilder.buildCodexArgs(prompt, sessionId);
+            var settings = AiAgentSettings.getInstance();
+            boolean bypass = settings != null && settings.isBypassApprovals();
+            return AiProviderArgsBuilder.buildCodexArgs(prompt, sessionId, bypass);
         }
 
         @Override
         public StreamChunk parseLine(String line) {
             return AiProviderParsers.parseCodexLine(line);
+        }
+
+        @Override
+        public long timeoutMs() {
+            var settings = AiAgentSettings.getInstance();
+            return settings != null ? settings.getCodexTimeoutSec() * 1000L : 30_000;
         }
     };
 

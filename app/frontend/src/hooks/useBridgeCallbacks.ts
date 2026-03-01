@@ -1,0 +1,156 @@
+import { useEffect, useRef } from 'react'
+import { CliName, ProjectRef, bridge } from '../bridge'
+import type { Message } from '../components/ChatPanel'
+
+interface UseBridgeCallbacksParams {
+  activeCli: CliName | null
+  installedClis: CliName[]
+  msgIdRef: React.MutableRefObject<number>
+  pendingResponseCliRef: React.MutableRefObject<CliName | null>
+  pendingSessionsRef: React.MutableRefObject<{
+    remaining: Set<CliName>
+    results: Partial<Record<CliName, string>>
+  } | null>
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>
+  setRunningClis: React.Dispatch<React.SetStateAction<CliName[]>>
+  setProgressByCli: React.Dispatch<React.SetStateAction<Partial<Record<CliName, string>>>>
+  setProjectRefs: React.Dispatch<React.SetStateAction<ProjectRef[]>>
+  appendAssistant: (content: string, cli?: CliName, variant?: Message['variant']) => void
+}
+
+export function useBridgeCallbacks({
+  activeCli,
+  installedClis,
+  msgIdRef,
+  pendingResponseCliRef,
+  pendingSessionsRef,
+  setMessages,
+  setRunningClis,
+  setProgressByCli,
+  setProjectRefs,
+  appendAssistant,
+}: UseBridgeCallbacksParams) {
+  const installedClisRef = useRef<CliName[]>([])
+
+  useEffect(() => {
+    installedClisRef.current = installedClis
+  }, [installedClis])
+
+  useEffect(() => {
+    window.__onChunk = ((arg1: CliName | string, arg2?: string) => {
+      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
+      const text = arg2 !== undefined ? arg2 : String(arg1)
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        if (last?.role === 'assistant' && last.isStreaming && last.cli === cli) {
+          return [...prev.slice(0, -1), { ...last, content: last.content + text }]
+        }
+        return [...prev, {
+          id: ++msgIdRef.current,
+          role: 'assistant',
+          cli,
+          content: text,
+          isStreaming: true,
+        }]
+      })
+    }) as typeof window.__onChunk
+
+    window.__onProgress = ((arg1: CliName | string, arg2?: string) => {
+      const text = arg2 !== undefined ? arg2 : String(arg1)
+      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
+      if (!cli) return
+      setProgressByCli((prev) => ({ ...prev, [cli]: text }))
+    }) as typeof window.__onProgress
+
+    window.__onDone = ((cliArg?: CliName) => {
+      if (cliArg) {
+        setRunningClis((prev) => prev.filter((c) => c !== cliArg))
+        setProgressByCli((prev) => {
+          const next = { ...prev }
+          delete next[cliArg]
+          return next
+        })
+        setMessages((prev) => {
+          const idx = [...prev].map((m, i) => ({ m, i })).reverse()
+            .find(({ m }) => m.isStreaming && m.cli === cliArg)?.i
+          if (idx === undefined) return prev
+          const next = [...prev]
+          next[idx] = { ...next[idx], isStreaming: false }
+          return next
+        })
+      } else {
+        setRunningClis([])
+        setProgressByCli({})
+        setMessages((prev) => {
+          const idx = [...prev].map((m, i) => ({ m, i })).reverse()
+            .find(({ m }) => m.isStreaming)?.i
+          if (idx === undefined) return prev
+          const next = [...prev]
+          next[idx] = { ...next[idx], isStreaming: false }
+          return next
+        })
+      }
+      pendingResponseCliRef.current = null
+    }) as typeof window.__onDone
+
+    window.__onError = ((arg1: CliName | string, arg2?: string) => {
+      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
+      const error = arg2 !== undefined ? arg2 : String(arg1)
+      if (cli) {
+        setRunningClis((prev) => prev.filter((c) => c !== cli))
+        setProgressByCli((prev) => {
+          const next = { ...prev }
+          delete next[cli]
+          return next
+        })
+      } else {
+        setRunningClis([])
+        setProgressByCli({})
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: ++msgIdRef.current,
+          role: 'assistant',
+          cli,
+          variant: 'system',
+          content: `⚠️ Error: ${error}`,
+        },
+      ])
+      pendingResponseCliRef.current = null
+    }) as typeof window.__onError
+
+    window.__onProjectRefs = ((refs: ProjectRef[]) => {
+      setProjectRefs(Array.isArray(refs) ? refs : [])
+    }) as typeof window.__onProjectRefs
+
+    window.__onSession = ((cli: CliName, sessionId: string) => {
+      if (!pendingSessionsRef.current) return
+      pendingSessionsRef.current.results[cli] = sessionId
+      pendingSessionsRef.current.remaining.delete(cli)
+      if (pendingSessionsRef.current.remaining.size === 0) {
+        const results = { ...pendingSessionsRef.current.results }
+        pendingSessionsRef.current = null
+        const clis = installedClisRef.current
+        const lines = [
+          '🗂 **Session Status**',
+          '',
+          ...clis.map((c) => {
+            const id = results[c]
+            return `- **@${c}**: ${id ? `\`${id.slice(0, 24)}…\`` : 'no active session'}`
+          }),
+        ]
+        appendAssistant(lines.join('\n'), undefined, 'system')
+      }
+    }) as typeof window.__onSession
+  }, [activeCli])
+
+  useEffect(() => {
+    const requestProjectRefs = () => bridge.getProjectRefs()
+    requestProjectRefs()
+    window.addEventListener('bridgeReady', requestProjectRefs)
+    return () => {
+      window.removeEventListener('bridgeReady', requestProjectRefs)
+    }
+  }, [])
+}

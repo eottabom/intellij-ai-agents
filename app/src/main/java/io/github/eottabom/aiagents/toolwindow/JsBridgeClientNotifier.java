@@ -16,13 +16,12 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 		if (sessionId != null) {
 			resolvedSessionId = sessionId;
 		}
-		var escapedSessionId = esc(resolvedSessionId);
-		js("window.__onSession && window.__onSession('%s','%s')"
-				.formatted(esc(cli), escapedSessionId));
+		js("window.__onSession && window.__onSession(%s,%s)"
+				.formatted(GSON.toJson(cli), GSON.toJson(resolvedSessionId)));
 	}
 
 	void sendSessionCleared(String cli) {
-		js("window.__onSessionCleared && window.__onSessionCleared('%s')".formatted(cli));
+		js("window.__onSessionCleared && window.__onSessionCleared(%s)".formatted(GSON.toJson(cli)));
 	}
 
 	void sendInstalledProviders(List<String> providers) {
@@ -34,26 +33,28 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 	}
 
 	void sendChunk(String cli, String text) {
-		String escaped = text.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$");
-		js("window.__onChunk && window.__onChunk('%s', `%s`)".formatted(esc(cli), escaped));
+		js("window.__onChunk && window.__onChunk(%s, JSON.parse(%s))"
+				.formatted(GSON.toJson(cli), GSON.toJson(GSON.toJson(text))));
 	}
 
 	void sendProgress(String cli, String text) {
-		js("window.__onProgress && window.__onProgress('%s', '%s')".formatted(esc(cli), esc(text)));
+		js("window.__onProgress && window.__onProgress(%s, JSON.parse(%s))"
+				.formatted(GSON.toJson(cli), GSON.toJson(GSON.toJson(text))));
 	}
 
 	void sendDone(String cli) {
-		js("window.__onDone && window.__onDone('%s')".formatted(esc(cli)));
+		js("window.__onDone && window.__onDone(%s)".formatted(GSON.toJson(cli)));
 	}
 
 	void sendError(String cli, String error) {
 		String msg = normalize(cli, error);
-		String escaped = esc(msg).replace("\n", " ");
 		if (cli == null || cli.isBlank()) {
-			js("window.__onError && window.__onError('%s')".formatted(escaped));
+			js("window.__onError && window.__onError(JSON.parse(%s))"
+					.formatted(GSON.toJson(GSON.toJson(msg))));
 			return;
 		}
-		js("window.__onError && window.__onError('%s', '%s')".formatted(esc(cli), escaped));
+		js("window.__onError && window.__onError(%s, JSON.parse(%s))"
+				.formatted(GSON.toJson(cli), GSON.toJson(GSON.toJson(msg))));
 	}
 
 	private void js(String script) {
@@ -89,9 +90,5 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 			return raw.substring(0, 500) + "...";
 		}
 		return raw;
-	}
-
-	private String esc(String text) {
-		return text.replace("\\", "\\\\").replace("'", "\\'");
 	}
 }

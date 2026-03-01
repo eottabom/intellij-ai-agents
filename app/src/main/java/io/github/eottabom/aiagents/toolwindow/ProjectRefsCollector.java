@@ -53,7 +53,9 @@ final class ProjectRefsCollector {
         }
         var ignoredDirs = buildIgnoredDirs(root);
 
-        try (var stream = Files.walk(root, 6)) {
+        var settings = AiAgentSettings.getInstance();
+        int scanDepth = settings != null ? settings.getProjectRefsScanDepth() : 6;
+        try (var stream = Files.walk(root, scanDepth)) {
             var refs = stream
                     .filter(Files::isRegularFile)
                     .filter(path -> !isIgnored(root, path, ignoredDirs))
