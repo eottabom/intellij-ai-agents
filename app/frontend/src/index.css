@@ -182,8 +182,9 @@ html, body, #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #0d1117;
-  background: #fff;
+  color: var(--text);
+  background: transparent;
+  border: 1.5px solid #fff;
   overflow: hidden;
 }
 
@@ -193,9 +194,9 @@ html, body, #root {
   font-weight: 600;
 }
 
-.agent-badge.agent-claude .agent-badge-icon { background: var(--claude); }
-.agent-badge.agent-gemini .agent-badge-icon { background: var(--gemini); }
-.agent-badge.agent-codex .agent-badge-icon { background: var(--codex); }
+.agent-badge.agent-claude .agent-badge-icon { border-color: var(--claude); }
+.agent-badge.agent-gemini .agent-badge-icon { border-color: var(--gemini); }
+.agent-badge.agent-codex .agent-badge-icon { border-color: var(--codex); }
 
 .thinking-chip {
   margin-left: auto;
@@ -332,14 +333,15 @@ html, body, #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #0d1117;
-  background: #fff;
+  color: var(--text);
+  background: transparent;
+  border: 1.5px solid #fff;
   overflow: hidden;
 }
 
-.progress-chip.agent-claude .progress-chip-badge { background: var(--claude); }
-.progress-chip.agent-gemini .progress-chip-badge { background: var(--gemini); }
-.progress-chip.agent-codex .progress-chip-badge { background: var(--codex); }
+.progress-chip.agent-claude .progress-chip-badge { border-color: var(--claude); }
+.progress-chip.agent-gemini .progress-chip-badge { border-color: var(--gemini); }
+.progress-chip.agent-codex .progress-chip-badge { border-color: var(--codex); }
 
 .progress-chip-label {
   color: var(--text);
@@ -453,8 +455,9 @@ html, body, #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #0d1117;
-  background: #fff;
+  color: var(--text);
+  background: transparent;
+  border: 1.5px solid #fff;
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -468,11 +471,11 @@ html, body, #root {
   object-fit: contain;
 }
 
-.mention-item-icon.claude { background: var(--claude); }
-.mention-item-icon.gemini { background: var(--gemini); }
-.mention-item-icon.codex { background: var(--codex); }
+.mention-item-icon.claude { border-color: var(--claude); }
+.mention-item-icon.gemini { border-color: var(--gemini); }
+.mention-item-icon.codex { border-color: var(--codex); }
 .mention-item-icon.all {
-  background: linear-gradient(135deg, var(--claude), var(--gemini) 55%, var(--codex));
+  border-color: var(--text);
 }
 
 .mention-item-icon.slash {

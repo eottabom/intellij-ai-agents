@@ -97,7 +97,7 @@ class ChatCommandHandler {
                 return;
             }
 
-            provider.run("/doctor", null, workDir, chunk -> handleDoctorChunk(providerName, chunk, state));
+            provider.runDoctor(workDir, chunk -> handleDoctorChunk(providerName, chunk, state));
         }));
     }
 
@@ -130,7 +130,7 @@ class ChatCommandHandler {
                 }
             }
             case TOOL_USE -> {
-                // /doctor는 성공/실패 요약만 노출
+                // doctor는 성공/실패 요약만 노출
             }
             case ERROR -> {
                 runningTasks.remove(providerName);
@@ -142,13 +142,12 @@ class ChatCommandHandler {
             }
             case DONE -> {
                 runningTasks.remove(providerName);
-                var details = state.output.toString().trim();
-                if (details.isBlank()) {
-                    notifier.sendChunk(providerName, providerName.toUpperCase() + " CLI 사용 가능");
-                } else if (looksHealthyDoctorOutput(details)) {
+                var version = state.output.toString().trim();
+                if (version.isBlank()) {
                     notifier.sendChunk(providerName, providerName.toUpperCase() + " CLI 사용 가능");
                 } else {
-                    notifier.sendChunk(providerName, details);
+                    notifier.sendChunk(providerName,
+                            providerName.toUpperCase() + " CLI 사용 가능 (v" + version + ")");
                 }
                 notifier.sendDone(providerName);
             }
@@ -202,20 +201,6 @@ class ChatCommandHandler {
                 User request:
                 %s
                 """.formatted(prompt);
-    }
-
-    private boolean looksHealthyDoctorOutput(String output) {
-        var lower = output.toLowerCase(Locale.ROOT);
-        if (lower.contains("error") || lower.contains("failed") || lower.contains("not found")) {
-            return false;
-        }
-        return lower.contains("ok")
-                || lower.contains("ready")
-                || lower.contains("healthy")
-                || lower.contains("authenticated")
-                || lower.contains("logged in")
-                || lower.contains("installed")
-                || lower.contains("doctor");
     }
 
     record ParsedCommand(String providerName, String prompt) {}

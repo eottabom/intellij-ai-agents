@@ -87,6 +87,10 @@ public enum AiProvider {
         AiProviderProcessRunner.run(this, prompt, sessionId, workDir, onChunk);
     }
 
+    public void runDoctor(String workDir, Consumer<StreamChunk> onChunk) {
+        AiProviderProcessRunner.runSubcommand(this, "--version", workDir, onChunk);
+    }
+
     public static AiProvider fromName(String name) {
         for (AiProvider provider : values()) {
             if (provider.cliName.equals(name)) {
