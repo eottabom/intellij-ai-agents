@@ -1,5 +1,6 @@
 package io.github.eottabom.aiagents.toolwindow;
 
+import com.intellij.openapi.Disposable;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.ui.jcef.JBCefApp;
@@ -9,6 +10,8 @@ import com.intellij.ui.jcef.JBCefClient;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 import org.cef.handler.CefLoadHandlerAdapter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -16,21 +19,26 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * JCEF 기반 AI Agents 채팅 패널
  */
-public class AiAgentPanel {
+public class AiAgentPanel implements Disposable {
+
+    private static final Logger logger = LoggerFactory.getLogger(AiAgentPanel.class);
 
     private final JPanel container;
     private final JBCefBrowser browser;
     private final JsBridge bridge;
+    private Path webviewTempDir;
 
     public AiAgentPanel(Project project, List<String> installedProviders) {
         container = new JPanel(new BorderLayout());
@@ -69,12 +77,36 @@ public class AiAgentPanel {
         return container;
     }
 
+    @Override
+    public void dispose() {
+        if (webviewTempDir != null) {
+            try {
+                Files.walkFileTree(webviewTempDir, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        Files.deleteIfExists(file);
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                        Files.deleteIfExists(dir);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            } catch (IOException e) {
+                logger.warn("Failed to clean up webview temp dir: {}", webviewTempDir, e);
+            }
+        }
+    }
+
     private URL extractWebviewToTemp() {
         var html = readTextResource("/webview/index.html");
         if (html == null) return null;
 
         try {
             var root = Files.createTempDirectory("ai-agents-webview-");
+            webviewTempDir = root;
             var assetsDir = root.resolve("assets");
             Files.createDirectories(assetsDir);
 

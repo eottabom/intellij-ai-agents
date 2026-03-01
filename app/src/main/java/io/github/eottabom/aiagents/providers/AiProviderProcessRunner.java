@@ -95,7 +95,8 @@ final class AiProviderProcessRunner {
     private static void closeStdin(Process process) {
         try {
             process.getOutputStream().close();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            logger.debug("Failed to close stdin: {}", e.getMessage());
         }
     }
 
@@ -111,7 +112,8 @@ final class AiProviderProcessRunner {
                         }
                     }
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                logger.warn("Error reading stderr for {}: {}", provider.cliName, e.getMessage());
             }
         }, provider.cliName + "-stderr");
         thread.setDaemon(true);
@@ -215,7 +217,8 @@ final class AiProviderProcessRunner {
                 onChunk.accept(chunk);
                 state.sawOutput.set(true);
             }
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            logger.debug("Error reading stdout for {}: {}", provider.cliName, e.getMessage());
         }
 
         if (!state.sawOutput.get()) {

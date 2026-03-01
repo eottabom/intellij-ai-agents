@@ -8,10 +8,12 @@ final class AiProviderArgsBuilder {
     private AiProviderArgsBuilder() {
     }
 
-    static List<String> buildClaudeArgs(String prompt, String sessionId, String workDir) {
+    static List<String> buildClaudeArgs(String prompt, String sessionId, String workDir, boolean skipPermissions) {
         List<String> args = new ArrayList<>(List.of(
-                "--print", "--output-format", "stream-json", "--verbose",
-                "--dangerously-skip-permissions"));
+                "--print", "--output-format", "stream-json", "--verbose"));
+        if (skipPermissions) {
+            args.add("--dangerously-skip-permissions");
+        }
         if (sessionId != null && !sessionId.isBlank()) {
             args.add("--resume");
             args.add(sessionId);
@@ -25,9 +27,15 @@ final class AiProviderArgsBuilder {
         return args;
     }
 
-    static List<String> buildGeminiArgs(String prompt, String sessionId) {
-        List<String> args = new ArrayList<>(List.of(
-                "--output-format", "stream-json", "--approval-mode", "yolo", "--no-sandbox"));
+    static List<String> buildGeminiArgs(String prompt, String sessionId, boolean yoloMode) {
+        List<String> args = new ArrayList<>();
+        args.add("--output-format");
+        args.add("stream-json");
+        if (yoloMode) {
+            args.add("--approval-mode");
+            args.add("yolo");
+            args.add("--no-sandbox");
+        }
         if (sessionId != null && !sessionId.isBlank()) {
             args.add("--resume");
             args.add(sessionId);
@@ -37,10 +45,12 @@ final class AiProviderArgsBuilder {
         return args;
     }
 
-    static List<String> buildCodexArgs(String prompt, String sessionId) {
+    static List<String> buildCodexArgs(String prompt, String sessionId, boolean bypassApprovals) {
         List<String> args = new ArrayList<>();
         args.add("exec");
-        args.add("--dangerously-bypass-approvals-and-sandbox");
+        if (bypassApprovals) {
+            args.add("--dangerously-bypass-approvals-and-sandbox");
+        }
         if (sessionId != null && !sessionId.isBlank()) {
             args.add("resume");
             args.add("--json");

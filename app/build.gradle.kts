@@ -9,6 +9,16 @@ version = "0.0.1"
 val npmCmd = if (System.getProperty("os.name").lowercase().contains("win")) "npm.cmd" else "npm"
 val runIdeSandboxConfigDir = layout.buildDirectory.dir("idea-sandbox/IC-2025.1/config")
 
+val disabledPlugins = listOf(
+    "com.jetbrains.codeWithMe",
+    "org.jetbrains.kotlin",
+    "org.jetbrains.plugins.kotlin.jupyter",
+    "intellij.jupyter",
+    "intellij.jupyter.plugin.frontend",
+    "com.intellij.notebooks.core",
+    "org.jetbrains.completion.full.line",
+)
+
 repositories {
     mavenCentral()
     intellijPlatform {
@@ -72,15 +82,6 @@ tasks.register("configureRunIdeSandbox") {
     doLast {
         val configDir = runIdeSandboxConfigDir.get().asFile
         configDir.mkdirs()
-        val disabledPlugins = listOf(
-            "com.jetbrains.codeWithMe",
-            "org.jetbrains.kotlin",
-            "org.jetbrains.plugins.kotlin.jupyter",
-            "intellij.jupyter",
-            "intellij.jupyter.plugin.frontend",
-            "com.intellij.notebooks.core",
-            "org.jetbrains.completion.full.line",
-        )
         configDir.resolve("disabled_plugins.txt")
             .writeText(disabledPlugins.joinToString(separator = System.lineSeparator(), postfix = System.lineSeparator()))
     }
@@ -91,16 +92,7 @@ tasks.named("runIde") {
     doFirst {
         val configDir = runIdeSandboxConfigDir.get().asFile
         configDir.mkdirs()
-        configDir.resolve("disabled_plugins.txt").writeText(
-            listOf(
-                "com.jetbrains.codeWithMe",
-                "org.jetbrains.kotlin",
-                "org.jetbrains.plugins.kotlin.jupyter",
-                "intellij.jupyter",
-                "intellij.jupyter.plugin.frontend",
-                "com.intellij.notebooks.core",
-                "org.jetbrains.completion.full.line",
-            ).joinToString(separator = System.lineSeparator(), postfix = System.lineSeparator())
-        )
+        configDir.resolve("disabled_plugins.txt")
+            .writeText(disabledPlugins.joinToString(separator = System.lineSeparator(), postfix = System.lineSeparator()))
     }
 }

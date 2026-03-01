@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChatMode, CliName, ProjectRef, bridge } from '../bridge'
+import { parseAgentCommand, parsePlanCommand, parseSessionCommand } from '../utils/commandParser'
+import { useBridgeCallbacks } from '../hooks/useBridgeCallbacks'
 import MessageList from './MessageList'
 import InputBar from './InputBar'
 import AgentIcon, { getAgentMeta } from './AgentIcon'
@@ -17,45 +19,8 @@ interface Props {
   installedClis: CliName[]
 }
 
-type Target = CliName | 'all'
-
-interface PlanCommandResult {
-  modeChanged: ChatMode | null
-  prompt: string
-}
-
 const CONTEXT_TURNS = 4
 const CONTEXT_CHARS_PER_MSG = 220
-
-function parseAgentCommand(raw: string, fallbackCli: CliName) {
-  const match = raw.match(/^@(claude|gemini|codex|all)\b\s*/i)
-  if (!match) {
-    return { target: fallbackCli as Target, prompt: raw, switched: false }
-  }
-
-  const target = match[1].toLowerCase() as Target
-  const prompt = raw.slice(match[0].length).trim()
-  return { target, prompt, switched: target !== fallbackCli && target !== 'all' }
-}
-
-function parsePlanCommand(raw: string): PlanCommandResult {
-  const trimmed = raw.trim()
-  const match = trimmed.match(/^\/plan(?:\s+(on|off))?(?:\s+([\s\S]*))?$/i)
-  if (!match) return { modeChanged: null, prompt: raw }
-
-  const modeToken = match[1]?.toLowerCase()
-  const remainder = (match[2] ?? '').trim()
-  if (modeToken === 'off') return { modeChanged: 'normal', prompt: remainder }
-  return { modeChanged: 'plan', prompt: remainder }
-}
-
-function parseSessionCommand(raw: string) {
-  const trimmed = raw.trim()
-  if (/^\/clearall(?:\s+sessions?)?$/i.test(trimmed)) {
-    return { clearAllSessions: true, prompt: '' }
-  }
-  return { clearAllSessions: false, prompt: raw }
-}
 
 export default function ChatPanel({ installedClis }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
@@ -67,17 +32,12 @@ export default function ChatPanel({ installedClis }: Props) {
   const msgIdRef = useRef(0)
   const pendingResponseCliRef = useRef<CliName | null>(null)
   const messagesRef = useRef<Message[]>([])
-  const installedClisRef = useRef<CliName[]>([])
   const pendingSessionsRef = useRef<{ remaining: Set<CliName>; results: Partial<Record<CliName, string>> } | null>(null)
   const isLoading = runningClis.length > 0
 
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
-
-  useEffect(() => {
-    installedClisRef.current = installedClis
-  }, [installedClis])
 
   useEffect(() => {
     if (!activeCli && installedClis.length > 0) {
@@ -88,130 +48,22 @@ export default function ChatPanel({ installedClis }: Props) {
     }
   }, [installedClis, activeCli])
 
-  useEffect(() => {
-    window.__onChunk = ((arg1: CliName | string, arg2?: string) => {
-      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
-      const text = arg2 !== undefined ? arg2 : String(arg1)
-      setMessages((prev) => {
-        const last = prev[prev.length - 1]
-        if (last?.role === 'assistant' && last.isStreaming && last.cli === cli) {
-          return [...prev.slice(0, -1), { ...last, content: last.content + text }]
-        }
-        return [...prev, {
-          id: ++msgIdRef.current,
-          role: 'assistant',
-          cli,
-          content: text,
-          isStreaming: true,
-        }]
-      })
-    }) as typeof window.__onChunk
-
-    window.__onProgress = ((arg1: CliName | string, arg2?: string) => {
-      const text = arg2 !== undefined ? arg2 : String(arg1)
-      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
-      if (!cli) return
-      setProgressByCli((prev) => ({ ...prev, [cli]: text }))
-    }) as typeof window.__onProgress
-
-    window.__onDone = ((cliArg?: CliName) => {
-      if (cliArg) {
-        setRunningClis((prev) => prev.filter((c) => c !== cliArg))
-        setProgressByCli((prev) => {
-          const next = { ...prev }
-          delete next[cliArg]
-          return next
-        })
-        setMessages((prev) => {
-          const idx = [...prev].map((m, i) => ({ m, i })).reverse()
-            .find(({ m }) => m.isStreaming && m.cli === cliArg)?.i
-          if (idx === undefined) return prev
-          const next = [...prev]
-          next[idx] = { ...next[idx], isStreaming: false }
-          return next
-        })
-      } else {
-        setRunningClis([])
-        setProgressByCli({})
-        setMessages((prev) => {
-          const idx = [...prev].map((m, i) => ({ m, i })).reverse()
-            .find(({ m }) => m.isStreaming)?.i
-          if (idx === undefined) return prev
-          const next = [...prev]
-          next[idx] = { ...next[idx], isStreaming: false }
-          return next
-        })
-      }
-      pendingResponseCliRef.current = null
-    }) as typeof window.__onDone
-
-    window.__onError = ((arg1: CliName | string, arg2?: string) => {
-      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
-      const error = arg2 !== undefined ? arg2 : String(arg1)
-      if (cli) {
-        setRunningClis((prev) => prev.filter((c) => c !== cli))
-        setProgressByCli((prev) => {
-          const next = { ...prev }
-          delete next[cli]
-          return next
-        })
-      } else {
-        setRunningClis([])
-        setProgressByCli({})
-      }
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: ++msgIdRef.current,
-          role: 'assistant',
-          cli,
-          variant: 'system',
-          content: `⚠️ Error: ${error}`,
-        },
-      ])
-      pendingResponseCliRef.current = null
-    }) as typeof window.__onError
-
-    window.__onProjectRefs = ((refs: ProjectRef[]) => {
-      setProjectRefs(Array.isArray(refs) ? refs : [])
-    }) as typeof window.__onProjectRefs
-
-    window.__onSession = ((cli: CliName, sessionId: string) => {
-      if (!pendingSessionsRef.current) return
-      pendingSessionsRef.current.results[cli] = sessionId
-      pendingSessionsRef.current.remaining.delete(cli)
-      if (pendingSessionsRef.current.remaining.size === 0) {
-        const results = { ...pendingSessionsRef.current.results }
-        pendingSessionsRef.current = null
-        const clis = installedClisRef.current
-        const lines = [
-          '🗂 **Session Status**',
-          '',
-          ...clis.map((c) => {
-            const id = results[c]
-            return `- **@${c}**: ${id ? `\`${id.slice(0, 24)}…\`` : 'no active session'}`
-          }),
-        ]
-        appendAssistant(lines.join('\n'), undefined, 'system')
-      }
-    }) as typeof window.__onSession
-  }, [activeCli])
-
-  useEffect(() => {
-    const requestProjectRefs = () => bridge.getProjectRefs()
-
-    // Initial request + retry when Java bridge injection completes.
-    requestProjectRefs()
-    window.addEventListener('bridgeReady', requestProjectRefs)
-
-    return () => {
-      window.removeEventListener('bridgeReady', requestProjectRefs)
-    }
-  }, [])
-
   const appendAssistant = (content: string, cli?: CliName, variant?: Message['variant']) => {
     setMessages((prev) => [...prev, { id: ++msgIdRef.current, role: 'assistant', content, cli, variant }])
   }
+
+  useBridgeCallbacks({
+    activeCli,
+    installedClis,
+    msgIdRef,
+    pendingResponseCliRef,
+    pendingSessionsRef,
+    setMessages,
+    setRunningClis,
+    setProgressByCli,
+    setProjectRefs,
+    appendAssistant,
+  })
 
   const clip = (text: string, max = CONTEXT_CHARS_PER_MSG) =>
     text.replace(/\s+/g, ' ').trim().slice(0, max)

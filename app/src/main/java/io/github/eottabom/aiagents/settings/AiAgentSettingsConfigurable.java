@@ -14,6 +14,13 @@ public class AiAgentSettingsConfigurable implements Configurable {
 
     private JTextField refsConfigPathField;
     private JTextArea extraIgnoredDirsArea;
+    private JCheckBox skipPermissionsCheckBox;
+    private JCheckBox bypassApprovalsCheckBox;
+    private JCheckBox geminiYoloModeCheckBox;
+    private JSpinner claudeTimeoutSpinner;
+    private JSpinner geminiTimeoutSpinner;
+    private JSpinner codexTimeoutSpinner;
+    private JSpinner scanDepthSpinner;
 
     @Nls
     @Override
@@ -52,6 +59,58 @@ public class AiAgentSettingsConfigurable implements Configurable {
         var hintLabel = new JLabel("<html>Config file example: <code>{\"ignoreDirs\":[\"coverage\",\"tmp\"]}</code></html>");
         formPanel.add(hintLabel, constraints);
 
+        // Security flags section
+        constraints.gridy++;
+        formPanel.add(Box.createVerticalStrut(12), constraints);
+        constraints.gridy++;
+        formPanel.add(new JLabel("CLI Permission Flags"), constraints);
+
+        constraints.gridy++;
+        var warningLabel = new JLabel("<html><b>Warning:</b> These flags skip CLI safety prompts. Disable for untrusted projects.</html>");
+        warningLabel.setForeground(new Color(204, 120, 50));
+        formPanel.add(warningLabel, constraints);
+
+        constraints.gridy++;
+        skipPermissionsCheckBox = new JCheckBox("Claude: --dangerously-skip-permissions");
+        formPanel.add(skipPermissionsCheckBox, constraints);
+
+        constraints.gridy++;
+        bypassApprovalsCheckBox = new JCheckBox("Codex: --dangerously-bypass-approvals-and-sandbox");
+        formPanel.add(bypassApprovalsCheckBox, constraints);
+
+        constraints.gridy++;
+        geminiYoloModeCheckBox = new JCheckBox("Gemini: --approval-mode yolo --no-sandbox");
+        formPanel.add(geminiYoloModeCheckBox, constraints);
+
+        // Timeout section
+        constraints.gridy++;
+        formPanel.add(Box.createVerticalStrut(12), constraints);
+        constraints.gridy++;
+        formPanel.add(new JLabel("Timeout Settings (seconds)"), constraints);
+
+        constraints.gridy++;
+        var timeoutPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        timeoutPanel.add(new JLabel("Claude:"));
+        claudeTimeoutSpinner = new JSpinner(new SpinnerNumberModel(180, 10, 600, 10));
+        timeoutPanel.add(claudeTimeoutSpinner);
+        timeoutPanel.add(new JLabel("Gemini:"));
+        geminiTimeoutSpinner = new JSpinner(new SpinnerNumberModel(60, 10, 600, 10));
+        timeoutPanel.add(geminiTimeoutSpinner);
+        timeoutPanel.add(new JLabel("Codex:"));
+        codexTimeoutSpinner = new JSpinner(new SpinnerNumberModel(30, 10, 600, 10));
+        timeoutPanel.add(codexTimeoutSpinner);
+        formPanel.add(timeoutPanel, constraints);
+
+        // Scan depth
+        constraints.gridy++;
+        formPanel.add(Box.createVerticalStrut(12), constraints);
+        constraints.gridy++;
+        var depthPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        depthPanel.add(new JLabel("Project refs scan depth:"));
+        scanDepthSpinner = new JSpinner(new SpinnerNumberModel(6, 1, 20, 1));
+        depthPanel.add(scanDepthSpinner);
+        formPanel.add(depthPanel, constraints);
+
         mainPanel.add(formPanel, BorderLayout.NORTH);
         return mainPanel;
     }
@@ -59,51 +118,66 @@ public class AiAgentSettingsConfigurable implements Configurable {
     @Override
     public boolean isModified() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null) {
-            return false;
-        }
-
-        if (!isUiReady()) {
+        if (settings == null || !isUiReady()) {
             return false;
         }
 
         return !settings.getRefsConfigPath().equals(refsConfigPathField.getText().trim())
-                || !settings.getExtraIgnoredDirsRaw().equals(extraIgnoredDirsArea.getText());
+                || !settings.getExtraIgnoredDirsRaw().equals(extraIgnoredDirsArea.getText())
+                || settings.isSkipPermissions() != skipPermissionsCheckBox.isSelected()
+                || settings.isBypassApprovals() != bypassApprovalsCheckBox.isSelected()
+                || settings.isGeminiYoloMode() != geminiYoloModeCheckBox.isSelected()
+                || settings.getClaudeTimeoutSec() != (int) claudeTimeoutSpinner.getValue()
+                || settings.getGeminiTimeoutSec() != (int) geminiTimeoutSpinner.getValue()
+                || settings.getCodexTimeoutSec() != (int) codexTimeoutSpinner.getValue()
+                || settings.getProjectRefsScanDepth() != (int) scanDepthSpinner.getValue();
     }
 
     @Override
     public void apply() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null) {
-            return;
-        }
-
-        if (!isUiReady()) {
+        if (settings == null || !isUiReady()) {
             return;
         }
 
         settings.setRefsConfigPath(refsConfigPathField.getText());
         settings.setExtraIgnoredDirsRaw(extraIgnoredDirsArea.getText());
+        settings.setSkipPermissions(skipPermissionsCheckBox.isSelected());
+        settings.setBypassApprovals(bypassApprovalsCheckBox.isSelected());
+        settings.setGeminiYoloMode(geminiYoloModeCheckBox.isSelected());
+        settings.setClaudeTimeoutSec((int) claudeTimeoutSpinner.getValue());
+        settings.setGeminiTimeoutSec((int) geminiTimeoutSpinner.getValue());
+        settings.setCodexTimeoutSec((int) codexTimeoutSpinner.getValue());
+        settings.setProjectRefsScanDepth((int) scanDepthSpinner.getValue());
     }
 
     @Override
     public void reset() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null) {
-            return;
-        }
-
-        if (!isUiReady()) {
+        if (settings == null || !isUiReady()) {
             return;
         }
 
         refsConfigPathField.setText(settings.getRefsConfigPath());
         extraIgnoredDirsArea.setText(settings.getExtraIgnoredDirsRaw());
+        skipPermissionsCheckBox.setSelected(settings.isSkipPermissions());
+        bypassApprovalsCheckBox.setSelected(settings.isBypassApprovals());
+        geminiYoloModeCheckBox.setSelected(settings.isGeminiYoloMode());
+        claudeTimeoutSpinner.setValue(settings.getClaudeTimeoutSec());
+        geminiTimeoutSpinner.setValue(settings.getGeminiTimeoutSec());
+        codexTimeoutSpinner.setValue(settings.getCodexTimeoutSec());
+        scanDepthSpinner.setValue(settings.getProjectRefsScanDepth());
     }
 
     private boolean isUiReady() {
-        var hasRefsConfigField = refsConfigPathField != null;
-        var hasIgnoredDirsArea = extraIgnoredDirsArea != null;
-        return hasRefsConfigField && hasIgnoredDirsArea;
+        return refsConfigPathField != null
+                && extraIgnoredDirsArea != null
+                && skipPermissionsCheckBox != null
+                && bypassApprovalsCheckBox != null
+                && geminiYoloModeCheckBox != null
+                && claudeTimeoutSpinner != null
+                && geminiTimeoutSpinner != null
+                && codexTimeoutSpinner != null
+                && scanDepthSpinner != null;
     }
 }
