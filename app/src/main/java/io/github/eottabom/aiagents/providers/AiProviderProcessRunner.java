@@ -26,6 +26,95 @@ final class AiProviderProcessRunner {
     private AiProviderProcessRunner() {
     }
 
+    static void runSubcommand(
+            AiProvider provider,
+            String subcommand,
+            String workDir,
+            Consumer<StreamChunk> onChunk
+    ) {
+        var argv = new ArrayList<String>();
+        argv.add(provider.cliName);
+        argv.add(subcommand);
+        var command = wrapForShell(argv);
+
+        logger.warn("run subcommand start={} subcommand={}", provider.cliName, subcommand);
+
+        Process process;
+        try {
+            var pb = new ProcessBuilder(command);
+            var processWorkDir = System.getProperty("user.home");
+            if (workDir != null) {
+                processWorkDir = workDir;
+            }
+            pb.directory(new File(processWorkDir));
+            pb.environment().putAll(System.getenv());
+            pb.redirectErrorStream(false);
+
+            process = pb.start();
+            closeStdin(process);
+        } catch (Exception startupException) {
+            onChunk.accept(StreamChunk.error(
+                    "Failed to start " + provider.cliName + " " + subcommand + ": " + startupException.getMessage()));
+            return;
+        }
+
+        RunState state = new RunState();
+        Thread stderrThread = drainStderr(provider, process, state.stderrBuf);
+        Thread watchdogThread = startWatchdog(provider, process, state, onChunk);
+        Thread cancelThread = watchForCancellation(provider, process);
+
+        // doctor 서브커맨드는 plain text 출력이므로 parseLine을 거치지 않고 직접 수집
+        StringBuilder outputBuf = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                state.lastOutputAt.set(System.currentTimeMillis());
+                if (Thread.currentThread().isInterrupted()) {
+                    process.destroyForcibly();
+                    break;
+                }
+                String trimmed = line.trim();
+                if (!trimmed.isEmpty() && !isNoiseLine(trimmed)) {
+                    if (!outputBuf.isEmpty()) {
+                        outputBuf.append('\n');
+                    }
+                    outputBuf.append(trimmed);
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Error reading stdout for {} {}: {}", provider.cliName, subcommand, e.getMessage());
+        }
+
+        int exitCode = awaitExit(process, stderrThread);
+        watchdogThread.interrupt();
+        cancelThread.interrupt();
+
+        if (state.timedOut.get()) {
+            return;
+        }
+
+        String output = outputBuf.toString().trim();
+        String stderr = state.stderrBuf.toString().trim();
+
+        if (!output.isBlank()) {
+            onChunk.accept(StreamChunk.text(output));
+        } else if (!stderr.isBlank()) {
+            if (exitCode == 0) {
+                onChunk.accept(StreamChunk.text(stderr));
+            } else {
+                onChunk.accept(StreamChunk.error(stderr));
+                return;
+            }
+        } else if (exitCode != 0) {
+            onChunk.accept(StreamChunk.error(
+                    provider.cliName + " " + subcommand + " exited with code " + exitCode));
+            return;
+        }
+
+        onChunk.accept(StreamChunk.done(null));
+    }
+
     static void run(
             AiProvider provider,
             String prompt,
