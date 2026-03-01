@@ -1,5 +1,6 @@
 package io.github.eottabom.aiagents.toolwindow;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.openapi.wm.ToolWindow;
@@ -25,12 +26,16 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
 
     @Override
     public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        List<String> installedProviders = detectInstalledProviders();
-        AiAgentPanel panel = new AiAgentPanel(project, installedProviders);
+        var panel = new AiAgentPanel(project, ALL_PROVIDERS);
         Disposer.register(project, panel);
         var content = ContentFactory.getInstance()
                 .createContent(panel.getComponent(), "", false);
         toolWindow.getContentManager().addContent(content);
+
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            var detected = detectInstalledProviders();
+            panel.updateInstalledProviders(detected);
+        });
     }
 
     @Override

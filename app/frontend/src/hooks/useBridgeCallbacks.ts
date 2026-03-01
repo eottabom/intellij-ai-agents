@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { CliName, ProjectRef, bridge } from '../bridge'
 import type { Message } from '../components/ChatPanel'
 
@@ -31,10 +31,15 @@ export function useBridgeCallbacks({
   appendAssistant,
 }: UseBridgeCallbacksParams) {
   const installedClisRef = useRef<CliName[]>([])
+  const appendAssistantRef = useRef(appendAssistant)
 
   useEffect(() => {
     installedClisRef.current = installedClis
   }, [installedClis])
+
+  useEffect(() => {
+    appendAssistantRef.current = appendAssistant
+  }, [appendAssistant])
 
   useEffect(() => {
     window.__onChunk = ((arg1: CliName | string, arg2?: string) => {
@@ -140,7 +145,7 @@ export function useBridgeCallbacks({
             return `- **@${c}**: ${id ? `\`${id.slice(0, 24)}…\`` : 'no active session'}`
           }),
         ]
-        appendAssistant(lines.join('\n'), undefined, 'system')
+        appendAssistantRef.current(lines.join('\n'), undefined, 'system')
       }
     }) as typeof window.__onSession
   }, [activeCli])

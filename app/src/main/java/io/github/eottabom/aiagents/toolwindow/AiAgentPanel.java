@@ -77,6 +77,10 @@ public class AiAgentPanel implements Disposable {
         return container;
     }
 
+    void updateInstalledProviders(List<String> providers) {
+        bridge.sendInstalledProviders(providers);
+    }
+
     @Override
     public void dispose() {
         if (webviewTempDir != null) {

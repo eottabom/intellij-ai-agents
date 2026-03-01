@@ -6,9 +6,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
-final class AiProviderJsonUtils {
+final class CliJsonUtils {
 
-    private AiProviderJsonUtils() {
+    private CliJsonUtils() {
     }
 
     static JsonObject tryParseJson(String line) {

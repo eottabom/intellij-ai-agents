@@ -5,103 +5,85 @@ import io.github.eottabom.aiagents.providers.StreamChunk;
 
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 /**
  * 채팅 명령 처리 로직 (JsBridge에서 분리)
  */
-class ChatCommandHandler {
+record ChatCommandHandler(
+        JsBridgeClientNotifier notifier,
+        SessionStore sessionStore,
+        ExecutorService executor,
+        Map<String, Future<?>> runningTasks
+) {
 
     private static final Pattern AGENT_PREFIX_PATTERN =
             Pattern.compile("^\\s*@(?<cli>claude|gemini|codex)\\b\\s*(?<prompt>[\\s\\S]*)$", Pattern.CASE_INSENSITIVE);
 
-    private final JsBridgeClientNotifier notifier;
-    private final SessionStore sessionStore;
-    private final ExecutorService executor;
-    private final Map<String, Future<?>> runningTasks;
-
-    ChatCommandHandler(
-            JsBridgeClientNotifier notifier,
-            SessionStore sessionStore,
-            ExecutorService executor,
-            Map<String, Future<?>> runningTasks
-    ) {
-        this.notifier = notifier;
-        this.sessionStore = sessionStore;
-        this.executor = executor;
-        this.runningTasks = runningTasks;
+    void handleChat(BridgeMessage msg, String workDir) {
+        var command = resolveCommand(msg);
+        if (command == null) return;
+        if (command.isDoctor()) {
+            dispatchDoctor(command.providerName(), workDir);
+            return;
+        }
+        dispatchChat(command, msg.mode(), workDir);
     }
 
-    void handleChat(BridgeMessage msg, String workDir) {
-        ParsedCommand parsed = parseCommand(msg.cli(), msg.prompt());
-        String providerName = normalizeProviderName(parsed.providerName());
+    private ResolvedCommand resolveCommand(BridgeMessage msg) {
+        var parsed = parseCommand(msg.cli(), msg.prompt());
+        var providerName = resolveProviderName(parsed.providerName());
         if (providerName == null) {
             notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
-            return;
+            return null;
         }
-        var rawPrompt = "";
-        if (parsed.prompt() != null) {
-            rawPrompt = parsed.prompt().trim();
-        }
-        if ("/doctor".equals(rawPrompt)) {
-            runDoctor(providerName, workDir);
-            return;
+        return new ResolvedCommand(providerName, parsed.prompt());
+    }
+
+    private void dispatchChat(ResolvedCommand command, String mode, String workDir) {
+        var normalizedMode = "normal";
+        if (mode != null) {
+            normalizedMode = mode.trim().toLowerCase(Locale.ROOT);
         }
 
-        var mode = "normal";
-        if (msg.mode() != null) {
-            mode = msg.mode().trim().toLowerCase(Locale.ROOT);
-        }
-
-        String prompt;
-        if ("plan".equals(mode)) {
-            prompt = wrapAsPlan(parsed.prompt());
-        } else {
-            prompt = parsed.prompt();
-        }
+        var prompt = "plan".equals(normalizedMode)
+                ? wrapAsPlan(command.prompt())
+                : command.prompt();
 
         if (prompt == null || prompt.isBlank()) {
             notifier.sendError(null, "Prompt is empty.");
             return;
         }
 
-        cancelRunning(providerName);
-        final String finalPrompt = prompt;
-        final String sessionId = sessionStore.get(providerName);
+        submitProviderTask(command.providerName(), provider -> {
+            var sessionId = sessionStore.get(command.providerName());
+            provider.run(prompt, sessionId, workDir,
+                    chunk -> onStreamChunk(command.providerName(), chunk));
+        });
+    }
+
+    void dispatchDoctor(String providerName, String workDir) {
+        var state = new DoctorOutputBuffer();
+        submitProviderTask(providerName, provider ->
+                provider.runDoctor(workDir, chunk -> onDoctorChunk(providerName, chunk, state)));
+    }
+
+    private void submitProviderTask(String providerName, Consumer<AiProvider> action) {
+        cancelTask(providerName);
         runningTasks.put(providerName, executor.submit(() -> {
-            AiProvider provider = AiProvider.fromName(providerName);
+            var provider = AiProvider.fromName(providerName);
             if (provider == null) {
                 notifier.sendError(providerName, providerName + " CLI is not installed.");
                 return;
             }
-            provider.run(
-                    finalPrompt,
-                    sessionId,
-                    workDir,
-                    chunk -> handleChunk(providerName, chunk));
+            action.accept(provider);
         }));
     }
 
-    void runDoctor(String providerName, String workDir) {
-        cancelRunning(providerName);
-
-        final DoctorRunState state = new DoctorRunState();
-
-        runningTasks.put(providerName, executor.submit(() -> {
-            AiProvider provider = AiProvider.fromName(providerName);
-            if (provider == null) {
-                notifier.sendError(providerName, providerName + " CLI is not installed.");
-                return;
-            }
-
-            provider.runDoctor(workDir, chunk -> handleDoctorChunk(providerName, chunk, state));
-        }));
-    }
-
-    void handleChunk(String providerName, StreamChunk chunk) {
+    void onStreamChunk(String providerName, StreamChunk chunk) {
         switch (chunk.type()) {
             case TEXT -> notifier.sendChunk(providerName, chunk.content());
             case TOOL_USE -> notifier.sendProgress(providerName, "\uD83D\uDD27 " + chunk.toolName());
@@ -119,22 +101,20 @@ class ChatCommandHandler {
         }
     }
 
-    void handleDoctorChunk(String providerName, StreamChunk chunk, DoctorRunState state) {
+    void onDoctorChunk(String providerName, StreamChunk chunk, DoctorOutputBuffer buffer) {
         switch (chunk.type()) {
             case TEXT -> {
                 if (!chunk.content().isBlank()) {
-                    if (!state.output.isEmpty()) {
-                        state.output.append('\n');
+                    if (!buffer.output.isEmpty()) {
+                        buffer.output.append('\n');
                     }
-                    state.output.append(chunk.content().trim());
+                    buffer.output.append(chunk.content().trim());
                 }
             }
-            case TOOL_USE -> {
-                // doctor는 성공/실패 요약만 노출
-            }
+            case TOOL_USE -> { /* doctor는 성공/실패 요약만 노출 */ }
             case ERROR -> {
                 runningTasks.remove(providerName);
-                var details = state.output.toString().trim();
+                var details = buffer.output.toString().trim();
                 if (!details.isBlank()) {
                     notifier.sendChunk(providerName, details);
                 }
@@ -142,19 +122,18 @@ class ChatCommandHandler {
             }
             case DONE -> {
                 runningTasks.remove(providerName);
-                var version = state.output.toString().trim();
-                if (version.isBlank()) {
-                    notifier.sendChunk(providerName, providerName.toUpperCase() + " CLI 사용 가능");
-                } else {
-                    notifier.sendChunk(providerName,
-                            providerName.toUpperCase() + " CLI 사용 가능 (v" + version + ")");
+                var version = buffer.output.toString().trim();
+                var label = providerName.toUpperCase() + " CLI 사용 가능";
+                if (!version.isBlank()) {
+                    label += " (v" + version + ")";
                 }
+                notifier.sendChunk(providerName, label);
                 notifier.sendDone(providerName);
             }
         }
     }
 
-    void cancelRunning(String providerName) {
+    void cancelTask(String providerName) {
         var task = runningTasks.remove(providerName);
         if (task != null) {
             task.cancel(true);
@@ -162,7 +141,7 @@ class ChatCommandHandler {
     }
 
     ParsedCommand parseCommand(String fallbackCli, String rawPrompt) {
-        var normalizedFallbackCli = normalizeProviderName(fallbackCli);
+        var normalizedFallbackCli = resolveProviderName(fallbackCli);
         if (rawPrompt == null) {
             return new ParsedCommand(normalizedFallbackCli, "");
         }
@@ -178,7 +157,7 @@ class ChatCommandHandler {
         return new ParsedCommand(commandCli, prompt.trim());
     }
 
-    String normalizeProviderName(String providerName) {
+    String resolveProviderName(String providerName) {
         if (providerName == null) {
             return null;
         }
@@ -189,7 +168,7 @@ class ChatCommandHandler {
         return null;
     }
 
-    String wrapAsPlan(String prompt) {
+    static String wrapAsPlan(String prompt) {
         if (prompt == null) {
             return "";
         }
@@ -205,7 +184,13 @@ class ChatCommandHandler {
 
     record ParsedCommand(String providerName, String prompt) {}
 
-    static final class DoctorRunState {
+    private record ResolvedCommand(String providerName, String prompt) {
+        boolean isDoctor() {
+            return "/doctor".equals(prompt != null ? prompt.trim() : "");
+        }
+    }
+
+    static final class DoctorOutputBuffer {
         final StringBuilder output = new StringBuilder();
     }
 }

@@ -116,11 +116,55 @@ IntelliJ IDEA 플러그인으로, **Claude, Gemini, Codex** CLI를 IDE 내부에
 
 **Settings > Tools > AI Agents** 에서 다음 설정을 변경할 수 있습니다:
 
-- **Project refs config path** — 프로젝트 참조 설정 파일 경로
-- **Extra excluded directories** — 자동완성 스캔 제외 디렉토리
-- **CLI Permission Flags** — 각 CLI의 위험 플래그 활성화/비활성화
-- **Timeout Settings** — CLI별 타임아웃 (초)
-- **Project refs scan depth** — 프로젝트 파일 스캔 깊이
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Project refs config path | `.aiagents/refs-config.json` | 프로젝트 참조 설정 파일 경로 (프로젝트 루트 기준 상대경로) |
+| Extra excluded directories | *(empty)* | 자동완성 스캔 제외 디렉토리 (쉼표 또는 줄바꿈 구분) |
+| Claude: --dangerously-skip-permissions | `true` | Claude CLI 권한 프롬프트 생략 |
+| Codex: --dangerously-bypass-approvals-and-sandbox | `true` | Codex CLI 승인/샌드박스 우회 |
+| Gemini: --approval-mode yolo --no-sandbox | `true` | Gemini CLI 자동 승인 모드 |
+| Timeout (Claude / Gemini / Codex) | `180` / `60` / `30` 초 | CLI별 응답 타임아웃 |
+| Project refs scan depth | `6` | 프로젝트 파일 스캔 최대 깊이 |
+
+## Project Refs (`#` 자동완성)
+
+`#`을 입력하면 프로젝트 내 파일/클래스 이름을 자동완성할 수 있습니다. 프롬프트에 `#ClassName`을 삽입하면 해당 파일의 컨텍스트를 AI에게 전달하는 데 활용됩니다.
+
+### 기본 제외 디렉토리
+
+다음 디렉토리는 기본적으로 스캔에서 제외됩니다:
+
+`.git`, `.idea`, `.gradle`, `.intellijplatform`, `build`, `dist`, `node_modules`, `target`, `out`
+
+### 추가 제외 방법
+
+#### 방법 1: Settings UI
+
+**Settings > Tools > AI Agents > Extra excluded directories** 에 제외할 디렉토리를 쉼표 또는 줄바꿈으로 입력합니다.
+
+```
+coverage, tmp, generated
+vendor/legacy
+```
+
+#### 방법 2: 프로젝트 설정 파일
+
+프로젝트 루트에 `.aiagents/refs-config.json` 파일을 생성합니다 (경로는 Settings에서 변경 가능):
+
+```json
+{
+  "ignoreDirs": ["coverage", "tmp", "generated"],
+  "excludeDirs": ["vendor/legacy", "scripts/deprecated"]
+}
+```
+
+`ignoreDirs`와 `excludeDirs` 모두 동일하게 동작하며, 두 필드를 함께 사용할 수 있습니다.
+
+### 스캔 대상 확장자
+
+`java`, `kt`, `kts`, `ts`, `tsx`, `js`, `jsx`, `json`, `md`, `xml`, `yml`, `yaml`, `properties`
+
+해시 번들(`*-AbCdEf.js`)과 minified 파일(`*.min.js`)은 자동으로 제외됩니다.
 
 ## Project Structure
 
