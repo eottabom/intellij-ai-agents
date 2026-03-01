@@ -12,19 +12,18 @@ public enum AiProvider {
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
             var settings = AiAgentSettings.getInstance();
-            boolean skip = settings != null && settings.isSkipPermissions();
-            return AiProviderArgsBuilder.buildClaudeArgs(prompt, sessionId, workDir, skip);
+            boolean skip = settings.isSkipPermissions();
+            return CliArgsBuilder.buildClaudeArgs(prompt, sessionId, workDir, skip);
         }
 
         @Override
         public StreamChunk parseLine(String line) {
-            return AiProviderParsers.parseClaudeLine(line);
+            return CliStreamParsers.parseClaudeLine(line);
         }
 
         @Override
         public long timeoutMs() {
-            var settings = AiAgentSettings.getInstance();
-            return settings != null ? settings.getClaudeTimeoutSec() * 1000L : 180_000;
+            return AiAgentSettings.getInstance().getClaudeTimeoutSec() * 1000L;
         }
     },
 
@@ -33,19 +32,18 @@ public enum AiProvider {
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
             var settings = AiAgentSettings.getInstance();
-            boolean yolo = settings != null && settings.isGeminiYoloMode();
-            return AiProviderArgsBuilder.buildGeminiArgs(prompt, sessionId, yolo);
+            boolean yolo = settings.isGeminiYoloMode();
+            return CliArgsBuilder.buildGeminiArgs(prompt, sessionId, yolo);
         }
 
         @Override
         public StreamChunk parseLine(String line) {
-            return AiProviderParsers.parseGeminiLine(line);
+            return CliStreamParsers.parseGeminiLine(line);
         }
 
         @Override
         public long timeoutMs() {
-            var settings = AiAgentSettings.getInstance();
-            return settings != null ? settings.getGeminiTimeoutSec() * 1000L : 60_000;
+            return AiAgentSettings.getInstance().getGeminiTimeoutSec() * 1000L;
         }
     },
 
@@ -54,19 +52,18 @@ public enum AiProvider {
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
             var settings = AiAgentSettings.getInstance();
-            boolean bypass = settings != null && settings.isBypassApprovals();
-            return AiProviderArgsBuilder.buildCodexArgs(prompt, sessionId, bypass);
+            boolean bypass = settings.isBypassApprovals();
+            return CliArgsBuilder.buildCodexArgs(prompt, sessionId, bypass);
         }
 
         @Override
         public StreamChunk parseLine(String line) {
-            return AiProviderParsers.parseCodexLine(line);
+            return CliStreamParsers.parseCodexLine(line);
         }
 
         @Override
         public long timeoutMs() {
-            var settings = AiAgentSettings.getInstance();
-            return settings != null ? settings.getCodexTimeoutSec() * 1000L : 30_000;
+            return AiAgentSettings.getInstance().getCodexTimeoutSec() * 1000L;
         }
     };
 
@@ -78,17 +75,14 @@ public enum AiProvider {
 
     protected abstract List<String> buildRunArgs(String prompt, String sessionId, String workDir);
     public abstract StreamChunk parseLine(String line);
-
-    public long timeoutMs() {
-        return 30_000;
-    }
+    public abstract long timeoutMs();
 
     public void run(String prompt, String sessionId, String workDir, Consumer<StreamChunk> onChunk) {
-        AiProviderProcessRunner.run(this, prompt, sessionId, workDir, onChunk);
+        CliProcessRunner.run(this, prompt, sessionId, workDir, onChunk);
     }
 
     public void runDoctor(String workDir, Consumer<StreamChunk> onChunk) {
-        AiProviderProcessRunner.runSubcommand(this, "--version", workDir, onChunk);
+        CliProcessRunner.runSubcommand(this, "--version", workDir, onChunk);
     }
 
     public static AiProvider fromName(String name) {

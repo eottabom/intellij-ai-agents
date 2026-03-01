@@ -5,6 +5,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefJSQuery;
+import io.github.eottabom.aiagents.refs.ProjectRefsCollector;
 
 import java.util.List;
 import java.util.Map;
@@ -46,7 +47,7 @@ class JsBridge implements Disposable {
     }
 
     void inject() {
-        String script = """
+        var script = """
                 window.__bridge = { send: function(json) { %s } };
                 window.dispatchEvent(new Event('bridgeReady'));
                 """.formatted(jsQuery.inject("json"));
@@ -63,6 +64,7 @@ class JsBridge implements Disposable {
                 case "clearSession"     -> handleClearSession(bridgeMessage);
                 case "clearAllSessions" -> sessionStore.clearAll();
                 case "getProjectRefs"   -> sendProjectRefs();
+                default -> notifier.sendError(null, "Unknown message type: " + bridgeMessage.type());
             }
         } catch (Exception bridgeException) {
             var errorMessage = bridgeException.getMessage();
@@ -74,19 +76,17 @@ class JsBridge implements Disposable {
     }
 
     private void handleCancel(BridgeMessage msg) {
-        String providerName = commandHandler.normalizeProviderName(msg.cli());
+        var providerName = resolveProvider(msg.cli());
         if (providerName == null) {
-            notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
             return;
         }
-        commandHandler.cancelRunning(providerName);
+        commandHandler.cancelTask(providerName);
         notifier.sendDone(providerName);
     }
 
     private void handleGetSession(BridgeMessage msg) {
-        String providerName = commandHandler.normalizeProviderName(msg.cli());
+        var providerName = resolveProvider(msg.cli());
         if (providerName == null) {
-            notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
             return;
         }
         var sessionId = sessionStore.get(providerName);
@@ -94,13 +94,20 @@ class JsBridge implements Disposable {
     }
 
     private void handleClearSession(BridgeMessage msg) {
-        String providerName = commandHandler.normalizeProviderName(msg.cli());
+        var providerName = resolveProvider(msg.cli());
         if (providerName == null) {
-            notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
             return;
         }
         sessionStore.clear(providerName);
         notifier.sendSessionCleared(providerName);
+    }
+
+    private String resolveProvider(String cli) {
+        var providerName = commandHandler.resolveProviderName(cli);
+        if (providerName == null) {
+            notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
+        }
+        return providerName;
     }
 
     void sendInstalledProviders(List<String> providers) {
@@ -114,11 +121,11 @@ class JsBridge implements Disposable {
             return;
         }
         if (projectRefsScanInProgress.compareAndSet(false, true)) {
-            executor.submit(this::scanAndSendProjectRefs);
+            executor.submit(this::collectAndNotifyProjectRefs);
         }
     }
 
-    private void scanAndSendProjectRefs() {
+    private void collectAndNotifyProjectRefs() {
         try {
             var projectRefsJson = ProjectRefsCollector.collect(project);
             if (projectRefsJson == null || projectRefsJson.isBlank()) {

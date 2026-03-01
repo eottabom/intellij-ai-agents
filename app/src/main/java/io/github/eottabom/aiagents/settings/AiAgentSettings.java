@@ -8,8 +8,9 @@ import com.intellij.openapi.components.Storage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import io.github.eottabom.aiagents.refs.DirPathNormalizer;
+
 import java.util.LinkedHashSet;
-import java.util.Locale;
 import java.util.Set;
 
 @Service(Service.Level.APP)
@@ -143,23 +144,6 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
     }
 
     private String normalizeDirToken(String token) {
-        if (token == null) {
-            return null;
-        }
-        String value = token.trim();
-        if (value.isBlank()) {
-            return null;
-        }
-        value = value.replace("\\", "/");
-        while (value.startsWith("/")) {
-            value = value.substring(1);
-        }
-        while (value.endsWith("/")) {
-            value = value.substring(0, value.length() - 1);
-        }
-        if (value.isBlank()) {
-            return null;
-        }
-        return value.toLowerCase(Locale.ROOT);
+        return DirPathNormalizer.normalize(token);
     }
 }

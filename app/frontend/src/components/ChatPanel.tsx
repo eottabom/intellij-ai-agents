@@ -174,6 +174,23 @@ export default function ChatPanel({ installedClis }: Props) {
       return
     }
 
+    if (/^\/doctor$/i.test(parsedPrompt.trim())) {
+      const targetClis = parsed.target === 'all' ? [...installedClis] : [parsed.target]
+      targetClis.forEach((cli) => bridge.chat(cli, '/doctor', 'normal'))
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: ++msgIdRef.current,
+          role: 'user',
+          content: '/doctor' + (targetClis.length > 1 ? ' (@all)' : ` (@${targetClis[0]})`),
+        },
+      ])
+      setRunningClis(targetClis)
+      setProgressByCli(Object.fromEntries(targetClis.map((cli) => [cli, 'checking...'])) as Partial<Record<CliName, string>>)
+      pendingResponseCliRef.current = targetClis[0] ?? null
+      return
+    }
+
     if (parsed.target !== 'all' && parsed.switched) {
       setActiveCli(parsed.target)
       setMessages((prev) => [

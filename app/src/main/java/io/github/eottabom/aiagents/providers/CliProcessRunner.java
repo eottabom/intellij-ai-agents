@@ -15,15 +15,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-final class AiProviderProcessRunner {
+final class CliProcessRunner {
 
-    private static final Logger logger = LoggerFactory.getLogger(AiProviderProcessRunner.class);
+    private static final Logger logger = LoggerFactory.getLogger(CliProcessRunner.class);
     private static final int STDERR_BUFFER_LIMIT = 8_000;
     private static final int PLAINTEXT_BUFFER_LIMIT = 8_000;
     private static final long WATCHDOG_POLL_MS = 1_000;
     private static final long CANCEL_POLL_MS = 100;
 
-    private AiProviderProcessRunner() {
+    private CliProcessRunner() {
     }
 
     static void runSubcommand(
@@ -35,37 +35,23 @@ final class AiProviderProcessRunner {
         var argv = new ArrayList<String>();
         argv.add(provider.cliName);
         argv.add(subcommand);
-        var command = wrapForShell(argv);
 
         logger.warn("run subcommand start={} subcommand={}", provider.cliName, subcommand);
 
-        Process process;
-        try {
-            var pb = new ProcessBuilder(command);
-            var processWorkDir = System.getProperty("user.home");
-            if (workDir != null) {
-                processWorkDir = workDir;
-            }
-            pb.directory(new File(processWorkDir));
-            pb.environment().putAll(System.getenv());
-            pb.redirectErrorStream(false);
-
-            process = pb.start();
-            closeStdin(process);
-        } catch (Exception startupException) {
+        var process = createProcess(provider, argv, workDir);
+        if (process == null) {
             onChunk.accept(StreamChunk.error(
-                    "Failed to start " + provider.cliName + " " + subcommand + ": " + startupException.getMessage()));
+                    "Failed to start " + provider.cliName + " " + subcommand));
             return;
         }
 
-        RunState state = new RunState();
-        Thread stderrThread = drainStderr(provider, process, state.stderrBuf);
-        Thread watchdogThread = startWatchdog(provider, process, state, onChunk);
-        Thread cancelThread = watchForCancellation(provider, process);
+        var state = new RunState();
+        var stderrThread = drainStderr(provider, process, state.stderrBuf);
+        var watchdogThread = startWatchdog(provider, process, state, onChunk);
+        var cancelThread = watchForCancellation(provider, process);
 
-        // doctor 서브커맨드는 plain text 출력이므로 parseLine을 거치지 않고 직접 수집
-        StringBuilder outputBuf = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
+        var outputBuf = new StringBuilder();
+        try (var reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -74,19 +60,23 @@ final class AiProviderProcessRunner {
                     process.destroyForcibly();
                     break;
                 }
-                String trimmed = line.trim();
-                if (!trimmed.isEmpty() && !isNoiseLine(trimmed)) {
-                    if (!outputBuf.isEmpty()) {
-                        outputBuf.append('\n');
-                    }
-                    outputBuf.append(trimmed);
+                var trimmed = line.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
                 }
+                if (isNoiseLine(trimmed)) {
+                    continue;
+                }
+                if (!outputBuf.isEmpty()) {
+                    outputBuf.append('\n');
+                }
+                outputBuf.append(trimmed);
             }
         } catch (Exception e) {
             logger.debug("Error reading stdout for {} {}: {}", provider.cliName, subcommand, e.getMessage());
         }
 
-        int exitCode = awaitExit(process, stderrThread);
+        var exitCode = awaitExit(process, stderrThread);
         watchdogThread.interrupt();
         cancelThread.interrupt();
 
@@ -94,8 +84,8 @@ final class AiProviderProcessRunner {
             return;
         }
 
-        String output = outputBuf.toString().trim();
-        String stderr = state.stderrBuf.toString().trim();
+        var output = outputBuf.toString().trim();
+        var stderr = state.stderrBuf.toString().trim();
 
         if (!output.isBlank()) {
             onChunk.accept(StreamChunk.text(output));
@@ -122,19 +112,28 @@ final class AiProviderProcessRunner {
             String workDir,
             Consumer<StreamChunk> onChunk
     ) {
-        Process process = startProcess(provider, prompt, sessionId, workDir, onChunk);
+        var argv = new ArrayList<String>();
+        argv.add(provider.cliName);
+        argv.addAll(provider.buildRunArgs(prompt, sessionId, workDir));
+
+        var promptLength = prompt != null ? prompt.length() : 0;
+        logger.warn("run start={} promptLen={}", provider.cliName, promptLength);
+
+        var process = createProcess(provider, argv, workDir);
         if (process == null) {
+            onChunk.accept(StreamChunk.error(
+                    "Failed to start " + provider.cliName));
             return;
         }
 
-        RunState state = new RunState();
-        Thread stderrThread = drainStderr(provider, process, state.stderrBuf);
-        Thread watchdogThread = startWatchdog(provider, process, state, onChunk);
-        Thread cancelThread = watchForCancellation(provider, process);
+        var state = new RunState();
+        var stderrThread = drainStderr(provider, process, state.stderrBuf);
+        var watchdogThread = startWatchdog(provider, process, state, onChunk);
+        var cancelThread = watchForCancellation(provider, process);
 
-        String lastSessionId = readStdout(provider, process, state, onChunk);
+        var lastSessionId = readStdout(provider, process, state, onChunk);
 
-        int exitCode = awaitExit(process, stderrThread);
+        var exitCode = awaitExit(process, stderrThread);
         watchdogThread.interrupt();
         cancelThread.interrupt();
 
@@ -143,30 +142,11 @@ final class AiProviderProcessRunner {
         }
     }
 
-    private static Process startProcess(
-            AiProvider provider,
-            String prompt,
-            String sessionId,
-            String workDir,
-            Consumer<StreamChunk> onChunk
-    ) {
-        var argv = new ArrayList<String>();
-        argv.add(provider.cliName);
-        argv.addAll(provider.buildRunArgs(prompt, sessionId, workDir));
+    private static Process createProcess(AiProvider provider, List<String> argv, String workDir) {
         var command = wrapForShell(argv);
-
-        var promptLength = 0;
-        if (prompt != null) {
-            promptLength = prompt.length();
-        }
-        logger.warn("run start={} promptLen={}", provider.cliName, promptLength);
-
         try {
             var pb = new ProcessBuilder(command);
-            var processWorkDir = System.getProperty("user.home");
-            if (workDir != null) {
-                processWorkDir = workDir;
-            }
+            var processWorkDir = workDir != null ? workDir : System.getProperty("user.home");
             pb.directory(new File(processWorkDir));
             pb.environment().putAll(System.getenv());
             pb.redirectErrorStream(false);
@@ -174,9 +154,8 @@ final class AiProviderProcessRunner {
             var process = pb.start();
             closeStdin(process);
             return process;
-        } catch (Exception startupException) {
-            onChunk.accept(StreamChunk.error(
-                    "Failed to start " + provider.cliName + ": " + startupException.getMessage()));
+        } catch (Exception e) {
+            logger.warn("Failed to create process for {}: {}", provider.cliName, e.getMessage());
             return null;
         }
     }
@@ -190,15 +169,19 @@ final class AiProviderProcessRunner {
     }
 
     private static Thread drainStderr(AiProvider provider, Process process, StringBuilder buf) {
-        Thread thread = new Thread(() -> {
-            try (BufferedReader reader = new BufferedReader(
+        var thread = new Thread(() -> {
+            try (var reader = new BufferedReader(
                     new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    if (!line.isBlank() && !isNoiseLine(line)) {
-                        if (buf.length() < STDERR_BUFFER_LIMIT) {
-                            buf.append(line).append('\n');
-                        }
+                    if (line.isBlank()) {
+                        continue;
+                    }
+                    if (isNoiseLine(line)) {
+                        continue;
+                    }
+                    if (buf.length() < STDERR_BUFFER_LIMIT) {
+                        buf.append(line).append('\n');
                     }
                 }
             } catch (Exception e) {
@@ -216,13 +199,13 @@ final class AiProviderProcessRunner {
             RunState state,
             Consumer<StreamChunk> onChunk
     ) {
-        Thread thread = new Thread(() -> {
-            long timeout = provider.timeoutMs();
+        var thread = new Thread(() -> {
+            var timeout = provider.timeoutMs();
             while (process.isAlive()) {
                 if (waitForExitOrInterrupt(process, WATCHDOG_POLL_MS)) {
                     return;
                 }
-                long idleMs = System.currentTimeMillis() - state.lastOutputAt.get();
+                var idleMs = System.currentTimeMillis() - state.lastOutputAt.get();
                 if (idleMs > timeout && state.timedOut.compareAndSet(false, true)) {
                     logger.warn("timeout name={} idleMs={}", provider.cliName, idleMs);
                     process.destroyForcibly();
@@ -239,9 +222,9 @@ final class AiProviderProcessRunner {
     }
 
     private static Thread watchForCancellation(AiProvider provider, Process process) {
-        Thread caller = Thread.currentThread();
+        var caller = Thread.currentThread();
 
-        Thread thread = new Thread(() -> {
+        var thread = new Thread(() -> {
             while (process.isAlive()) {
                 if (caller.isInterrupted()) {
                     logger.warn("cancel requested name={}", provider.cliName);
@@ -265,9 +248,9 @@ final class AiProviderProcessRunner {
             Consumer<StreamChunk> onChunk
     ) {
         String lastSessionId = null;
-        StringBuilder plainTextBuf = new StringBuilder();
+        var plainTextBuf = new StringBuilder();
 
-        try (BufferedReader reader = new BufferedReader(
+        try (var reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
@@ -277,12 +260,15 @@ final class AiProviderProcessRunner {
                     return null;
                 }
 
-                String trimmed = line.trim();
-                if (trimmed.isEmpty() || isNoiseLine(trimmed)) {
+                var trimmed = line.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                if (isNoiseLine(trimmed)) {
                     continue;
                 }
 
-                StreamChunk chunk = provider.parseLine(trimmed);
+                var chunk = provider.parseLine(trimmed);
                 if (chunk == null) {
                     if (trimmed.startsWith("{") || state.sawStructuredOutput.get()) {
                         continue;
@@ -311,7 +297,7 @@ final class AiProviderProcessRunner {
         }
 
         if (!state.sawOutput.get()) {
-            String plainText = plainTextBuf.toString().trim();
+            var plainText = plainTextBuf.toString().trim();
             if (!plainText.isBlank()) {
                 onChunk.accept(StreamChunk.text(plainText));
                 state.sawOutput.set(true);
@@ -323,7 +309,7 @@ final class AiProviderProcessRunner {
 
     private static int awaitExit(Process process, Thread stderrThread) {
         try {
-            int code = process.waitFor();
+            var code = process.waitFor();
             stderrThread.join(200);
             return code;
         } catch (InterruptedException interruptedException) {
@@ -339,7 +325,7 @@ final class AiProviderProcessRunner {
             RunState state,
             Consumer<StreamChunk> onChunk
     ) {
-        String stderr = state.stderrBuf.toString().trim();
+        var stderr = state.stderrBuf.toString().trim();
 
         if (!state.sawOutput.get() && !stderr.isBlank()) {
             if (exitCode == 0) {
@@ -365,7 +351,7 @@ final class AiProviderProcessRunner {
         }
 
         var shellCommand = new StringBuilder();
-        for (int argumentIndex = 0; argumentIndex < argv.size(); argumentIndex++) {
+        for (var argumentIndex = 0; argumentIndex < argv.size(); argumentIndex++) {
             if (argumentIndex > 0) {
                 shellCommand.append(' ');
             }

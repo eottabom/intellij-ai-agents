@@ -1,4 +1,4 @@
-package io.github.eottabom.aiagents.toolwindow;
+package io.github.eottabom.aiagents.refs;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-final class ProjectRefsCollector {
+public final class ProjectRefsCollector {
 
     private static final Gson GSON = new Gson();
     private static final Set<String> DEFAULT_IGNORED_DIRS = Set.of(
@@ -41,7 +41,7 @@ final class ProjectRefsCollector {
     private ProjectRefsCollector() {
     }
 
-    static String collect(Project project) {
+    public static String collect(Project project) {
         var basePath = project.getBasePath();
         if (basePath == null || basePath.isBlank()) {
             return null;
@@ -75,8 +75,7 @@ final class ProjectRefsCollector {
         var pathSegments = normalizedRelativePath.split("/");
         var currentPath = new StringBuilder();
 
-        for (int segmentIndex = 0; segmentIndex < pathSegments.length; segmentIndex++) {
-            var segment = pathSegments[segmentIndex];
+        for (String segment : pathSegments) {
             if (segment.isBlank()) {
                 continue;
             }
@@ -86,14 +85,11 @@ final class ProjectRefsCollector {
             }
             currentPath.append(segment);
 
-            var isIgnoredBySegmentName = ignoredDirs.contains(segment);
-            if (isIgnoredBySegmentName) {
+            if (ignoredDirs.contains(segment)) {
                 return true;
             }
 
-            var currentRelativePath = currentPath.toString();
-            var isIgnoredByRelativePath = ignoredDirs.contains(currentRelativePath);
-            if (isIgnoredByRelativePath) {
+            if (ignoredDirs.contains(currentPath.toString())) {
                 return true;
             }
         }
@@ -104,17 +100,13 @@ final class ProjectRefsCollector {
     private static boolean isRefCandidate(Path path) {
         var fileName = path.getFileName().toString();
         var ext = extensionOf(fileName);
-        var hasAllowedExtension = REF_EXTENSIONS.contains(ext);
-        if (!hasAllowedExtension) {
+        if (!REF_EXTENSIONS.contains(ext)) {
             return false;
         }
-        // Skip hashed/minified bundles to keep autocomplete focused on source files.
-        var isMinifiedBundle = fileName.endsWith(".min.js");
-        if (isMinifiedBundle) {
+        if (fileName.endsWith(".min.js")) {
             return false;
         }
-        var isHashedBundle = fileName.matches(".*-[A-Za-z0-9]{6,}\\.[A-Za-z0-9]+$");
-        return !isHashedBundle;
+        return !fileName.matches(".*-[A-Za-z0-9]{6,}\\.[A-Za-z0-9]+$");
     }
 
     private static String toRefJson(Path root, Path file) {
@@ -190,31 +182,10 @@ final class ProjectRefsCollector {
             if (!el.isJsonPrimitive()) {
                 continue;
             }
-            var normalized = normalizeDirToken(el.getAsString());
+            var normalized = DirPathNormalizer.normalize(el.getAsString());
             if (normalized != null) {
                 out.add(normalized);
             }
         }
-    }
-
-    private static String normalizeDirToken(String token) {
-        if (token == null) {
-            return null;
-        }
-        var value = token.trim();
-        if (value.isBlank()) {
-            return null;
-        }
-        value = value.replace("\\", "/");
-        while (value.startsWith("/")) {
-            value = value.substring(1);
-        }
-        while (value.endsWith("/")) {
-            value = value.substring(0, value.length() - 1);
-        }
-        if (value.isBlank()) {
-            return null;
-        }
-        return value.toLowerCase(Locale.ROOT);
     }
 }

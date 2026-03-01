@@ -1,6 +1,7 @@
 package io.github.eottabom.aiagents.settings;
 
 import com.intellij.openapi.options.Configurable;
+import com.intellij.ui.JBColor;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,7 +60,15 @@ public class AiAgentSettingsConfigurable implements Configurable {
         var hintLabel = new JLabel("<html>Config file example: <code>{\"ignoreDirs\":[\"coverage\",\"tmp\"]}</code></html>");
         formPanel.add(hintLabel, constraints);
 
-        // Security flags section
+        addSecurityFlagsSection(formPanel, constraints);
+        addTimeoutSection(formPanel, constraints);
+        addScanDepthSection(formPanel, constraints);
+
+        mainPanel.add(formPanel, BorderLayout.NORTH);
+        return mainPanel;
+    }
+
+    private void addSecurityFlagsSection(JPanel formPanel, GridBagConstraints constraints) {
         constraints.gridy++;
         formPanel.add(Box.createVerticalStrut(12), constraints);
         constraints.gridy++;
@@ -67,7 +76,9 @@ public class AiAgentSettingsConfigurable implements Configurable {
 
         constraints.gridy++;
         var warningLabel = new JLabel("<html><b>Warning:</b> These flags skip CLI safety prompts. Disable for untrusted projects.</html>");
-        warningLabel.setForeground(new Color(204, 120, 50));
+        warningLabel.setForeground(JBColor.namedColor(
+                "Label.warningForeground",
+                new JBColor(new Color(204, 120, 50), new Color(204, 120, 50))));
         formPanel.add(warningLabel, constraints);
 
         constraints.gridy++;
@@ -81,8 +92,9 @@ public class AiAgentSettingsConfigurable implements Configurable {
         constraints.gridy++;
         geminiYoloModeCheckBox = new JCheckBox("Gemini: --approval-mode yolo --no-sandbox");
         formPanel.add(geminiYoloModeCheckBox, constraints);
+    }
 
-        // Timeout section
+    private void addTimeoutSection(JPanel formPanel, GridBagConstraints constraints) {
         constraints.gridy++;
         formPanel.add(Box.createVerticalStrut(12), constraints);
         constraints.gridy++;
@@ -100,8 +112,9 @@ public class AiAgentSettingsConfigurable implements Configurable {
         codexTimeoutSpinner = new JSpinner(new SpinnerNumberModel(30, 10, 600, 10));
         timeoutPanel.add(codexTimeoutSpinner);
         formPanel.add(timeoutPanel, constraints);
+    }
 
-        // Scan depth
+    private void addScanDepthSection(JPanel formPanel, GridBagConstraints constraints) {
         constraints.gridy++;
         formPanel.add(Box.createVerticalStrut(12), constraints);
         constraints.gridy++;
@@ -110,33 +123,64 @@ public class AiAgentSettingsConfigurable implements Configurable {
         scanDepthSpinner = new JSpinner(new SpinnerNumberModel(6, 1, 20, 1));
         depthPanel.add(scanDepthSpinner);
         formPanel.add(depthPanel, constraints);
-
-        mainPanel.add(formPanel, BorderLayout.NORTH);
-        return mainPanel;
     }
 
     @Override
     public boolean isModified() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null || !isUiReady()) {
+        if (settings == null) {
+            return false;
+        }
+        if (!isUiReady()) {
             return false;
         }
 
-        return !settings.getRefsConfigPath().equals(refsConfigPathField.getText().trim())
-                || !settings.getExtraIgnoredDirsRaw().equals(extraIgnoredDirsArea.getText())
-                || settings.isSkipPermissions() != skipPermissionsCheckBox.isSelected()
-                || settings.isBypassApprovals() != bypassApprovalsCheckBox.isSelected()
-                || settings.isGeminiYoloMode() != geminiYoloModeCheckBox.isSelected()
-                || settings.getClaudeTimeoutSec() != (int) claudeTimeoutSpinner.getValue()
-                || settings.getGeminiTimeoutSec() != (int) geminiTimeoutSpinner.getValue()
-                || settings.getCodexTimeoutSec() != (int) codexTimeoutSpinner.getValue()
-                || settings.getProjectRefsScanDepth() != (int) scanDepthSpinner.getValue();
+        if (isRefsConfigModified(settings)) {
+            return true;
+        }
+        if (isSecurityFlagsModified(settings)) {
+            return true;
+        }
+        if (isTimeoutsModified(settings)) {
+            return true;
+        }
+        return settings.getProjectRefsScanDepth() != (int) scanDepthSpinner.getValue();
+    }
+
+    private boolean isRefsConfigModified(AiAgentSettings settings) {
+        if (!settings.getRefsConfigPath().equals(refsConfigPathField.getText().trim())) {
+            return true;
+        }
+        return !settings.getExtraIgnoredDirsRaw().equals(extraIgnoredDirsArea.getText());
+    }
+
+    private boolean isSecurityFlagsModified(AiAgentSettings settings) {
+        if (settings.isSkipPermissions() != skipPermissionsCheckBox.isSelected()) {
+            return true;
+        }
+        if (settings.isBypassApprovals() != bypassApprovalsCheckBox.isSelected()) {
+            return true;
+        }
+        return settings.isGeminiYoloMode() != geminiYoloModeCheckBox.isSelected();
+    }
+
+    private boolean isTimeoutsModified(AiAgentSettings settings) {
+        if (settings.getClaudeTimeoutSec() != (int) claudeTimeoutSpinner.getValue()) {
+            return true;
+        }
+        if (settings.getGeminiTimeoutSec() != (int) geminiTimeoutSpinner.getValue()) {
+            return true;
+        }
+        return settings.getCodexTimeoutSec() != (int) codexTimeoutSpinner.getValue();
     }
 
     @Override
     public void apply() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null || !isUiReady()) {
+        if (settings == null) {
+            return;
+        }
+        if (!isUiReady()) {
             return;
         }
 
@@ -154,7 +198,10 @@ public class AiAgentSettingsConfigurable implements Configurable {
     @Override
     public void reset() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null || !isUiReady()) {
+        if (settings == null) {
+            return;
+        }
+        if (!isUiReady()) {
             return;
         }
 
@@ -170,14 +217,15 @@ public class AiAgentSettingsConfigurable implements Configurable {
     }
 
     private boolean isUiReady() {
-        return refsConfigPathField != null
-                && extraIgnoredDirsArea != null
-                && skipPermissionsCheckBox != null
-                && bypassApprovalsCheckBox != null
-                && geminiYoloModeCheckBox != null
-                && claudeTimeoutSpinner != null
-                && geminiTimeoutSpinner != null
-                && codexTimeoutSpinner != null
-                && scanDepthSpinner != null;
+        if (refsConfigPathField == null || extraIgnoredDirsArea == null) {
+            return false;
+        }
+        if (skipPermissionsCheckBox == null || bypassApprovalsCheckBox == null || geminiYoloModeCheckBox == null) {
+            return false;
+        }
+        if (claudeTimeoutSpinner == null || geminiTimeoutSpinner == null || codexTimeoutSpinner == null) {
+            return false;
+        }
+        return scanDepthSpinner != null;
     }
 }

@@ -5,19 +5,19 @@ import com.google.gson.JsonObject;
 
 import java.util.Locale;
 
-final class AiProviderParsers {
+final class CliStreamParsers {
 
-    private AiProviderParsers() {
+    private CliStreamParsers() {
     }
 
     static StreamChunk parseClaudeLine(String line) {
-        var obj = AiProviderJsonUtils.tryParseJson(line);
+        var obj = CliJsonUtils.tryParseJson(line);
         if (obj == null) {
             return null;
         }
 
-        var type = AiProviderJsonUtils.stringField(obj, "type");
-        var sessionId = AiProviderJsonUtils.stringField(obj, "session_id");
+        var type = CliJsonUtils.stringField(obj, "type");
+        var sessionId = CliJsonUtils.stringField(obj, "session_id");
 
         if ("assistant".equals(type) && obj.has("message")) {
             var chunk = parseClaudeAssistantMessage(obj.getAsJsonObject("message"));
@@ -32,12 +32,12 @@ final class AiProviderParsers {
     }
 
     static StreamChunk parseGeminiLine(String line) {
-        var obj = AiProviderJsonUtils.tryParseJson(line);
+        var obj = CliJsonUtils.tryParseJson(line);
         if (obj == null) {
             return null;
         }
 
-        var type = AiProviderJsonUtils.stringField(obj, "type");
+        var type = CliJsonUtils.stringField(obj, "type");
         var normalizedType = "";
         if (type != null) {
             normalizedType = type.toLowerCase(Locale.ROOT);
@@ -66,12 +66,12 @@ final class AiProviderParsers {
     }
 
     static StreamChunk parseCodexLine(String line) {
-        var obj = AiProviderJsonUtils.tryParseJson(line);
+        var obj = CliJsonUtils.tryParseJson(line);
         if (obj == null) {
             return null;
         }
 
-        var type = AiProviderJsonUtils.stringField(obj, "type");
+        var type = CliJsonUtils.stringField(obj, "type");
         var normalizedType = "";
         if (type != null) {
             normalizedType = type;
@@ -113,7 +113,7 @@ final class AiProviderParsers {
         }
         for (JsonElement el : message.getAsJsonArray("content")) {
             var item = el.getAsJsonObject();
-            var itemType = AiProviderJsonUtils.stringField(item, "type");
+            var itemType = CliJsonUtils.stringField(item, "type");
             if ("text".equals(itemType) && item.has("text")) {
                 return StreamChunk.text(item.get("text").getAsString());
             }
@@ -139,7 +139,7 @@ final class AiProviderParsers {
     }
 
     private static StreamChunk parseGeminiMessage(JsonObject obj) {
-        var role = AiProviderJsonUtils.stringField(obj, "role");
+        var role = CliJsonUtils.stringField(obj, "role");
         var isAssistantRole = "assistant".equalsIgnoreCase(role);
         var isModelRole = "model".equalsIgnoreCase(role);
         var isSupportedRole = isAssistantRole || isModelRole;
@@ -149,7 +149,7 @@ final class AiProviderParsers {
         if (!obj.has("content")) {
             return null;
         }
-        var text = AiProviderJsonUtils.extractGeminiText(obj.get("content"));
+        var text = CliJsonUtils.extractGeminiText(obj.get("content"));
         if (text == null || text.isBlank()) {
             return null;
         }
@@ -161,7 +161,7 @@ final class AiProviderParsers {
             return null;
         }
         var item = obj.getAsJsonObject("item");
-        var itemType = AiProviderJsonUtils.stringField(item, "type");
+        var itemType = CliJsonUtils.stringField(item, "type");
         var normalizedItemType = "";
         if (itemType != null) {
             normalizedItemType = itemType;

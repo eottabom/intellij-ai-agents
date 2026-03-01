@@ -29,7 +29,8 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 	}
 
 	void sendProjectRefs(String refsJson) {
-		js("window.__onProjectRefs && window.__onProjectRefs(%s)".formatted(refsJson));
+		js("window.__onProjectRefs && window.__onProjectRefs(JSON.parse(%s))"
+				.formatted(GSON.toJson(refsJson)));
 	}
 
 	void sendChunk(String cli, String text) {
@@ -47,7 +48,7 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 	}
 
 	void sendError(String cli, String error) {
-		String msg = normalize(cli, error);
+		var msg = normalize(cli, error);
 		if (cli == null || cli.isBlank()) {
 			js("window.__onError && window.__onError(JSON.parse(%s))"
 					.formatted(GSON.toJson(GSON.toJson(msg))));
@@ -71,24 +72,36 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 			return "Unknown error";
 		}
 
-		String lower = raw.toLowerCase(Locale.ROOT);
+		var lower = raw.toLowerCase(Locale.ROOT);
 		if (lower.contains("produced no output for")) {
 			return "Request stopped due to inactivity timeout. Retry with a simpler prompt.";
 		}
 		if (lower.contains("require approval")) {
 			return "Request stopped: tool call required approval. Try a simpler request.";
 		}
-		if ("gemini".equals(cli)
-				&& (lower.contains("login") || lower.contains("auth") || lower.contains("unauthorized"))) {
+		if (isGeminiAuthError(cli, lower)) {
 			return "Gemini CLI: run `gemini` in your terminal to complete auth setup, then retry.";
 		}
-		if (("claude".equals(cli) || "codex".equals(cli))
-				&& (lower.contains("login") || lower.contains("not authenticated"))) {
+		if (isClaudeOrCodexAuthError(cli, lower)) {
 			return cli + " CLI: run `" + cli + "` in your terminal to login, then retry.";
 		}
 		if (raw.length() > 500) {
 			return raw.substring(0, 500) + "...";
 		}
 		return raw;
+	}
+
+	private boolean isGeminiAuthError(String cli, String lower) {
+		if (!"gemini".equals(cli)) {
+			return false;
+		}
+		return lower.contains("login") || lower.contains("auth") || lower.contains("unauthorized");
+	}
+
+	private boolean isClaudeOrCodexAuthError(String cli, String lower) {
+		if (!"claude".equals(cli) && !"codex".equals(cli)) {
+			return false;
+		}
+		return lower.contains("login") || lower.contains("not authenticated");
 	}
 }
