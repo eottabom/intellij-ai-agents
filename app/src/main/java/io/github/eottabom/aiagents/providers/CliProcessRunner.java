@@ -1,5 +1,6 @@
 package io.github.eottabom.aiagents.providers;
 
+import io.github.eottabom.aiagents.util.OsUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -9,7 +10,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -346,7 +346,7 @@ final class CliProcessRunner {
     }
 
     private static List<String> wrapForShell(List<String> argv) {
-        if (isWindows()) {
+        if (OsUtils.isWindows()) {
             return argv;
         }
 
@@ -358,12 +358,6 @@ final class CliProcessRunner {
             shellCommand.append('\'').append(argv.get(argumentIndex).replace("'", "'\"'\"'")).append('\'');
         }
         return List.of("/bin/bash", "-l", "-c", shellCommand.toString());
-    }
-
-    private static boolean isWindows() {
-        var osName = System.getProperty("os.name", "");
-        var normalizedOsName = osName.toLowerCase(Locale.ROOT);
-        return normalizedOsName.contains("win");
     }
 
     private static boolean isNoiseLine(String line) {

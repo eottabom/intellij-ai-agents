@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-class AiProviderJsonUtilsTests {
+class CliJsonUtilsTests {
 
     @Test
     void extractGeminiTextExtractsFromPartsArray() {
@@ -14,7 +14,7 @@ class AiProviderJsonUtilsTests {
                 {"parts":[{"text":"line1"},{"text":"line2"}]}
                 """);
 
-        var text = AiProviderJsonUtils.extractGeminiText(element);
+        var text = CliJsonUtils.extractGeminiText(element);
 
         assertEquals("line1\nline2", text);
     }
@@ -23,7 +23,7 @@ class AiProviderJsonUtilsTests {
     void extractGeminiTextReturnsNullForNonStringPrimitive() {
         var element = JsonParser.parseString("123");
 
-        var text = AiProviderJsonUtils.extractGeminiText(element);
+        var text = CliJsonUtils.extractGeminiText(element);
 
         assertNull(text);
     }
