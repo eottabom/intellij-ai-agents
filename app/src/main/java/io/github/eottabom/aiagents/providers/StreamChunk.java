@@ -7,7 +7,7 @@ public record StreamChunk(ChunkType type, String content, String toolName, Strin
     }
 
     public static StreamChunk toolUse(String name) {
-        return new StreamChunk(ChunkType.TOOL_USE, name, name, null);
+        return new StreamChunk(ChunkType.TOOL_USE, null, name, null);
     }
 
     public static StreamChunk done(String sessionId) {

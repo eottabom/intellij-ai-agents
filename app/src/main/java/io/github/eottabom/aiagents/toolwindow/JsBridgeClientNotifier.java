@@ -7,9 +7,15 @@ import com.intellij.ui.jcef.JBCefBrowser;
 import java.util.List;
 import java.util.Locale;
 
-record JsBridgeClientNotifier(JBCefBrowser browser) {
+class JsBridgeClientNotifier {
 
 	private static final Gson GSON = new Gson();
+
+	private final JBCefBrowser browser;
+
+	JsBridgeClientNotifier(JBCefBrowser browser) {
+		this.browser = browser;
+	}
 
 	void sendSession(String cli, String sessionId) {
 		var resolvedSessionId = "";
@@ -35,12 +41,12 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 
 	void sendChunk(String cli, String text) {
 		js("window.__onChunk && window.__onChunk(%s, JSON.parse(%s))"
-				.formatted(GSON.toJson(cli), GSON.toJson(GSON.toJson(text))));
+				.formatted(GSON.toJson(cli), jsStringLiteral(text)));
 	}
 
 	void sendProgress(String cli, String text) {
 		js("window.__onProgress && window.__onProgress(%s, JSON.parse(%s))"
-				.formatted(GSON.toJson(cli), GSON.toJson(GSON.toJson(text))));
+				.formatted(GSON.toJson(cli), jsStringLiteral(text)));
 	}
 
 	void sendDone(String cli) {
@@ -51,11 +57,20 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 		var msg = normalize(cli, error);
 		if (cli == null || cli.isBlank()) {
 			js("window.__onError && window.__onError(JSON.parse(%s))"
-					.formatted(GSON.toJson(GSON.toJson(msg))));
+					.formatted(jsStringLiteral(msg)));
 			return;
 		}
 		js("window.__onError && window.__onError(%s, JSON.parse(%s))"
-				.formatted(GSON.toJson(cli), GSON.toJson(GSON.toJson(msg))));
+				.formatted(GSON.toJson(cli), jsStringLiteral(msg)));
+	}
+
+	/**
+	 * 값을 JSON 문자열로 직렬화한 뒤, 그 결과를 다시 JSON 문자열로 감싼다.
+	 * JS 쪽에서 JSON.parse()로 한 번 벗기면 원래 문자열이 복원된다.
+	 * 예: "hello" → "\"hello\"" → "\"\\\"hello\\\"\""
+	 */
+	private static String jsStringLiteral(String value) {
+		return GSON.toJson(GSON.toJson(value));
 	}
 
 	private void js(String script) {
@@ -73,10 +88,10 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 		}
 
 		var lower = raw.toLowerCase(Locale.ROOT);
-		if (lower.contains("produced no output for")) {
+		if (isTimeoutError(lower)) {
 			return "Request stopped due to inactivity timeout. Retry with a simpler prompt.";
 		}
-		if (lower.contains("require approval")) {
+		if (isApprovalError(lower)) {
 			return "Request stopped: tool call required approval. Try a simpler request.";
 		}
 		if (isGeminiAuthError(cli, lower)) {
@@ -91,14 +106,22 @@ record JsBridgeClientNotifier(JBCefBrowser browser) {
 		return raw;
 	}
 
-	private boolean isGeminiAuthError(String cli, String lower) {
+	private static boolean isTimeoutError(String lower) {
+		return lower.contains("produced no output for");
+	}
+
+	private static boolean isApprovalError(String lower) {
+		return lower.contains("require approval");
+	}
+
+	private static boolean isGeminiAuthError(String cli, String lower) {
 		if (!"gemini".equals(cli)) {
 			return false;
 		}
 		return lower.contains("login") || lower.contains("auth") || lower.contains("unauthorized");
 	}
 
-	private boolean isClaudeOrCodexAuthError(String cli, String lower) {
+	private static boolean isClaudeOrCodexAuthError(String cli, String lower) {
 		if (!"claude".equals(cli) && !"codex".equals(cli)) {
 			return false;
 		}

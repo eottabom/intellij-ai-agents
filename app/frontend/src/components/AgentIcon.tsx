@@ -3,20 +3,20 @@ import geminiIcon from '../assets/agent-icons/gemini.svg'
 import claudeIcon from '../assets/agent-icons/claude.svg'
 import codexIcon from '../assets/agent-icons/codex.svg'
 
-type AgentMeta = {
+type AgentConfig = {
   label: string
   className: 'claude' | 'gemini' | 'codex'
+  icon: string
 }
 
-export function getAgentMeta(cli: CliName): AgentMeta {
-  switch (cli) {
-    case 'claude':
-      return { label: 'Claude', className: 'claude' }
-    case 'gemini':
-      return { label: 'Gemini', className: 'gemini' }
-    case 'codex':
-      return { label: 'Codex', className: 'codex' }
-  }
+const AGENT_CONFIG: Record<CliName, AgentConfig> = {
+  claude: { label: 'Claude', className: 'claude', icon: claudeIcon },
+  gemini: { label: 'Gemini', className: 'gemini', icon: geminiIcon },
+  codex:  { label: 'Codex',  className: 'codex',  icon: codexIcon  },
+}
+
+export function getAgentMeta(cli: CliName): { label: string; className: string } {
+  return AGENT_CONFIG[cli]
 }
 
 interface Props {
@@ -25,14 +25,9 @@ interface Props {
 }
 
 export default function AgentIcon({ cli, size = 14 }: Props) {
-  const src =
-    cli === 'gemini' ? geminiIcon :
-    cli === 'claude' ? claudeIcon :
-    codexIcon
-
   return (
     <img
-      src={src}
+      src={AGENT_CONFIG[cli].icon}
       alt=""
       className="agent-icon-img"
       width={size}

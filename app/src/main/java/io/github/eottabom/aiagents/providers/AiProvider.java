@@ -3,6 +3,7 @@ package io.github.eottabom.aiagents.providers;
 import io.github.eottabom.aiagents.settings.AiAgentSettings;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 public enum AiProvider {
@@ -85,12 +86,15 @@ public enum AiProvider {
         CliProcessRunner.runSubcommand(this, "--version", workDir, onChunk);
     }
 
-    public static AiProvider fromName(String name) {
+    public static Optional<AiProvider> fromName(String name) {
+        if (name == null) {
+            return Optional.empty();
+        }
         for (AiProvider provider : values()) {
             if (provider.cliName.equals(name)) {
-                return provider;
+                return Optional.of(provider);
             }
         }
-        return null;
+        return Optional.empty();
     }
 }

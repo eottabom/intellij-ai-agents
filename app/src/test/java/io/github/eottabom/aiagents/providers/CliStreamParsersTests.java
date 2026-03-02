@@ -6,7 +6,7 @@ import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class AiProviderParsersTests {
+class CliStreamParsersTests {
 
     @Test
     void parseGeminiLineParsesInitEventUnderTurkishLocale() {
@@ -15,7 +15,7 @@ class AiProviderParsersTests {
             Locale.setDefault(Locale.forLanguageTag("tr-TR"));
 
             var line = "{\"type\":\"INIT\",\"session_id\":\"session-123\"}";
-            var chunk = AiProviderParsers.parseGeminiLine(line);
+            var chunk = CliStreamParsers.parseGeminiLine(line);
 
             assertNotNull(chunk);
             assertEquals(ChunkType.DONE, chunk.type());
@@ -31,7 +31,7 @@ class AiProviderParsersTests {
                 {"type":"message","role":"user","content":{"text":"hello"}}
                 """;
 
-        var chunk = AiProviderParsers.parseGeminiLine(line);
+        var chunk = CliStreamParsers.parseGeminiLine(line);
 
         assertNull(chunk);
     }
@@ -42,7 +42,7 @@ class AiProviderParsersTests {
                 {"type":"item.completed","item":{"type":"command_execution","aggregated_output":"  build ok  "}}
                 """;
 
-        var chunk = AiProviderParsers.parseCodexLine(line);
+        var chunk = CliStreamParsers.parseCodexLine(line);
 
         assertNotNull(chunk);
         assertEquals(ChunkType.TEXT, chunk.type());

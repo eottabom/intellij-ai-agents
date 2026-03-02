@@ -28,74 +28,52 @@ export default function InputBar({ onSend, onCancel, onTogglePlanMode, isLoading
     setMention, setSlash, setHash,
   } = useAutocomplete(installedClis, projectRefs)
 
+  const handleMenuKeys = <T,>(
+    e: KeyboardEvent<HTMLTextAreaElement>,
+    options: T[],
+    index: number,
+    setIndex: (fn: (prev: number) => number) => void,
+    apply: (item: T) => void,
+    close: () => void,
+  ): boolean => {
+    if (options.length === 0) {
+      return false
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setIndex((prev) => (prev + 1) % options.length)
+      return true
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setIndex((prev) => (prev - 1 + options.length) % options.length)
+      return true
+    }
+    if (e.key === 'Tab' || e.key === 'Enter') {
+      e.preventDefault()
+      apply(options[index] ?? options[0])
+      return true
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      close()
+      return true
+    }
+    return false
+  }
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (hashOptions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setHashIndex((prev) => (prev + 1) % hashOptions.length)
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setHashIndex((prev) => (prev - 1 + hashOptions.length) % hashOptions.length)
-        return
-      }
-      if (e.key === 'Tab' || e.key === 'Enter') {
-        e.preventDefault()
-        applyHash(hashOptions[hashIndex] ?? hashOptions[0], text, setText, textareaRef)
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setHash(null)
-        return
-      }
+    if (handleMenuKeys(e, hashOptions, hashIndex, setHashIndex,
+      (item) => applyHash(item, text, setText, textareaRef), () => setHash(null))) {
+      return
     }
-
-    if (slashOptions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setSlashIndex((prev) => (prev + 1) % slashOptions.length)
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setSlashIndex((prev) => (prev - 1 + slashOptions.length) % slashOptions.length)
-        return
-      }
-      if (e.key === 'Tab' || e.key === 'Enter') {
-        e.preventDefault()
-        applySlash(slashOptions[slashIndex] ?? slashOptions[0], text, setText, textareaRef)
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setSlash(null)
-        return
-      }
+    if (handleMenuKeys(e, slashOptions, slashIndex, setSlashIndex,
+      (item) => applySlash(item, text, setText, textareaRef), () => setSlash(null))) {
+      return
     }
-
-    if (mentionOptions.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setMentionIndex((prev) => (prev + 1) % mentionOptions.length)
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setMentionIndex((prev) => (prev - 1 + mentionOptions.length) % mentionOptions.length)
-        return
-      }
-      if (e.key === 'Tab' || e.key === 'Enter') {
-        e.preventDefault()
-        applyMention(mentionOptions[mentionIndex] ?? mentionOptions[0], text, setText, textareaRef)
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setMention(null)
-        return
-      }
+    if (handleMenuKeys(e, mentionOptions, mentionIndex, setMentionIndex,
+      (item) => applyMention(item, text, setText, textareaRef), () => setMention(null))) {
+      return
     }
 
     if (e.key === 'Enter' && !e.shiftKey) {

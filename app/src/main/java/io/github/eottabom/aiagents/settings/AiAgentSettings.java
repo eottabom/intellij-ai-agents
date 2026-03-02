@@ -20,9 +20,9 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
     public static final class State {
         public String refsConfigPath = ".aiagents/refs-config.json";
         public String extraIgnoredDirs = "";
-        public boolean skipPermissions = true;
-        public boolean bypassApprovals = true;
-        public boolean geminiYoloMode = true;
+        public boolean skipPermissions = false;
+        public boolean bypassApprovals = false;
+        public boolean geminiYoloMode = false;
         public int claudeTimeoutSec = 180;
         public int geminiTimeoutSec = 60;
         public int codexTimeoutSec = 30;
@@ -79,7 +79,7 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
     public Set<String> getExtraIgnoredDirs() {
         Set<String> dirs = new LinkedHashSet<>();
         for (String token : getExtraIgnoredDirsRaw().split("[,\\n\\r\\t ]+")) {
-            String normalized = normalizeDirToken(token);
+            String normalized = DirPathNormalizer.normalize(token);
             if (normalized != null) {
                 dirs.add(normalized);
             }
@@ -112,7 +112,7 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
     }
 
     public int getClaudeTimeoutSec() {
-        return state.claudeTimeoutSec > 0 ? state.claudeTimeoutSec : 180;
+        return positiveOrDefault(state.claudeTimeoutSec, 180);
     }
 
     public void setClaudeTimeoutSec(int sec) {
@@ -120,7 +120,7 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
     }
 
     public int getGeminiTimeoutSec() {
-        return state.geminiTimeoutSec > 0 ? state.geminiTimeoutSec : 60;
+        return positiveOrDefault(state.geminiTimeoutSec, 60);
     }
 
     public void setGeminiTimeoutSec(int sec) {
@@ -128,22 +128,27 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
     }
 
     public int getCodexTimeoutSec() {
-        return state.codexTimeoutSec > 0 ? state.codexTimeoutSec : 30;
+        return positiveOrDefault(state.codexTimeoutSec, 30);
     }
 
     public void setCodexTimeoutSec(int sec) {
         state.codexTimeoutSec = Math.max(10, sec);
     }
 
+    private static int positiveOrDefault(int value, int defaultValue) {
+        return value > 0 ? value : defaultValue;
+    }
+
+    private static final int MAX_SCAN_DEPTH = 20;
+
     public int getProjectRefsScanDepth() {
-        return state.projectRefsScanDepth > 0 ? state.projectRefsScanDepth : 6;
+        if (state.projectRefsScanDepth <= 0) {
+            return 6;
+        }
+        return Math.min(state.projectRefsScanDepth, MAX_SCAN_DEPTH);
     }
 
     public void setProjectRefsScanDepth(int depth) {
         state.projectRefsScanDepth = Math.max(1, depth);
-    }
-
-    private String normalizeDirToken(String token) {
-        return DirPathNormalizer.normalize(token);
     }
 }

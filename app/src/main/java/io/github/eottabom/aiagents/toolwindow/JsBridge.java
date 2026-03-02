@@ -57,14 +57,15 @@ class JsBridge implements Disposable {
     private void handleMessage(String json) {
         try {
             var bridgeMessage = BridgeMessage.fromJson(json);
-            switch (bridgeMessage.type()) {
-                case "chat"             -> commandHandler.handleChat(bridgeMessage, project.getBasePath());
-                case "cancel"           -> handleCancel(bridgeMessage);
-                case "getSession"       -> handleGetSession(bridgeMessage);
-                case "clearSession"     -> handleClearSession(bridgeMessage);
-                case "clearAllSessions" -> sessionStore.clearAll();
-                case "getProjectRefs"   -> sendProjectRefs();
-                default -> notifier.sendError(null, "Unknown message type: " + bridgeMessage.type());
+            var messageType = BridgeMessageType.fromString(bridgeMessage.type());
+            switch (messageType) {
+                case CHAT               -> commandHandler.handleChat(bridgeMessage, project.getBasePath());
+                case CANCEL             -> handleCancel(bridgeMessage);
+                case GET_SESSION        -> handleGetSession(bridgeMessage);
+                case CLEAR_SESSION      -> handleClearSession(bridgeMessage);
+                case CLEAR_ALL_SESSIONS -> sessionStore.clearAll();
+                case GET_PROJECT_REFS   -> sendProjectRefs();
+                case UNKNOWN            -> notifier.sendError(null, "Unknown message type: " + bridgeMessage.type());
             }
         } catch (Exception bridgeException) {
             var errorMessage = bridgeException.getMessage();

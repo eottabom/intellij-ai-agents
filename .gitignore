@@ -42,3 +42,4 @@ app/build
 .idea/**
 .intellijPlatform/**
 app/src/main/resources/webview/assets/
+AGENTS.md

@@ -10,11 +10,12 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.github.eottabom.aiagents.util.OsUtils;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Tool Window 팩토리 — IntelliJ 우측 패널에 AI Agents 채팅 UI 등록
@@ -45,7 +46,7 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
 
     private List<String> detectInstalledProviders() {
         List<String> installed = new ArrayList<>();
-        String whichCmd = isWindows() ? "where" : "which";
+        String whichCmd = OsUtils.isWindows() ? "where" : "which";
         for (String provider : ALL_PROVIDERS) {
             if (isCliInstalled(whichCmd, provider)) {
                 installed.add(provider);
@@ -69,13 +70,10 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
             }
             int exitCode = process.waitFor();
             return exitCode == 0;
-        } catch (Exception e) {
-            logger.debug("Failed to check CLI installation for {}: {}", cliName, e.getMessage());
+        } catch (Exception ex) {
+            logger.debug("Failed to check CLI installation for {}: {}", cliName, ex.getMessage());
             return false;
         }
     }
 
-    private static boolean isWindows() {
-        return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
-    }
 }

@@ -13,12 +13,24 @@ import java.util.regex.Pattern;
 /**
  * 채팅 명령 처리 로직 (JsBridge에서 분리)
  */
-record ChatCommandHandler(
-        JsBridgeClientNotifier notifier,
-        SessionStore sessionStore,
-        ExecutorService executor,
-        Map<String, Future<?>> runningTasks
-) {
+class ChatCommandHandler {
+
+    private final JsBridgeClientNotifier notifier;
+    private final SessionStore sessionStore;
+    private final ExecutorService executor;
+    private final Map<String, Future<?>> runningTasks;
+
+    ChatCommandHandler(
+            JsBridgeClientNotifier notifier,
+            SessionStore sessionStore,
+            ExecutorService executor,
+            Map<String, Future<?>> runningTasks
+    ) {
+        this.notifier = notifier;
+        this.sessionStore = sessionStore;
+        this.executor = executor;
+        this.runningTasks = runningTasks;
+    }
 
     private static final Pattern AGENT_PREFIX_PATTERN =
             Pattern.compile("^\\s*@(?<cli>claude|gemini|codex)\\b\\s*(?<prompt>[\\s\\S]*)$", Pattern.CASE_INSENSITIVE);
@@ -44,12 +56,9 @@ record ChatCommandHandler(
     }
 
     private void dispatchChat(ResolvedCommand command, String mode, String workDir) {
-        var normalizedMode = "normal";
-        if (mode != null) {
-            normalizedMode = mode.trim().toLowerCase(Locale.ROOT);
-        }
+        var chatMode = ChatMode.fromString(mode);
 
-        var prompt = "plan".equals(normalizedMode)
+        var prompt = (chatMode == ChatMode.PLAN)
                 ? wrapAsPlan(command.prompt())
                 : command.prompt();
 
@@ -75,11 +84,11 @@ record ChatCommandHandler(
         cancelTask(providerName);
         runningTasks.put(providerName, executor.submit(() -> {
             var provider = AiProvider.fromName(providerName);
-            if (provider == null) {
+            if (provider.isEmpty()) {
                 notifier.sendError(providerName, providerName + " CLI is not installed.");
                 return;
             }
-            action.accept(provider);
+            action.accept(provider.get());
         }));
     }
 
@@ -162,7 +171,7 @@ record ChatCommandHandler(
             return null;
         }
         var normalized = providerName.trim().toLowerCase(Locale.ROOT);
-        if (AiProvider.fromName(normalized) != null) {
+        if (AiProvider.fromName(normalized).isPresent()) {
             return normalized;
         }
         return null;

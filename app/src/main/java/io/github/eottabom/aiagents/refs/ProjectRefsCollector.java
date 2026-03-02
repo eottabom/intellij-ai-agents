@@ -12,7 +12,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -56,15 +55,16 @@ public final class ProjectRefsCollector {
         var settings = AiAgentSettings.getInstance();
         int scanDepth = settings != null ? settings.getProjectRefsScanDepth() : 6;
         try (var stream = Files.walk(root, scanDepth)) {
-            var refs = stream
+            var array = new JsonArray();
+            stream
                     .filter(Files::isRegularFile)
                     .filter(path -> !isIgnored(root, path, ignoredDirs))
                     .filter(ProjectRefsCollector::isRefCandidate)
                     .limit(800)
                     .map(path -> toRefJson(root, path))
-                    .filter(s -> s != null && !s.isBlank())
-                    .toList();
-            return "[" + String.join(",", refs) + "]";
+                    .filter(obj -> obj != null)
+                    .forEach(array::add);
+            return GSON.toJson(array);
         } catch (IOException ignored) {
             return null;
         }
@@ -109,7 +109,7 @@ public final class ProjectRefsCollector {
         return !fileName.matches(".*-[A-Za-z0-9]{6,}\\.[A-Za-z0-9]+$");
     }
 
-    private static String toRefJson(Path root, Path file) {
+    private static JsonObject toRefJson(Path root, Path file) {
         var rel = root.relativize(file);
         var relPath = rel.toString().replace("\\", "/");
         var fileName = file.getFileName().toString();
@@ -119,16 +119,13 @@ public final class ProjectRefsCollector {
             symbol = fileName.substring(0, dot);
         }
         var ext = extensionOf(fileName);
-        var kind = "file";
-        if (CLASS_EXTENSIONS.contains(ext)) {
-            kind = "class";
-        }
+        var kind = CLASS_EXTENSIONS.contains(ext) ? "class" : "file";
 
         var obj = new JsonObject();
         obj.addProperty("symbol", symbol);
         obj.addProperty("path", relPath);
         obj.addProperty("kind", kind);
-        return GSON.toJson(obj);
+        return obj;
     }
 
     private static String extensionOf(String fileName) {
