@@ -98,15 +98,17 @@ public class AiAgentPanel implements Disposable {
                         return FileVisitResult.CONTINUE;
                     }
                 });
-            } catch (IOException e) {
-                logger.warn("Failed to clean up webview temp dir: {}", webviewTempDir, e);
+            } catch (IOException ex) {
+                logger.warn("Failed to clean up webview temp dir: {}", webviewTempDir, ex);
             }
         }
     }
 
     private URL extractWebviewToTemp() {
         var html = readTextResource("/webview/index.html");
-        if (html == null) return null;
+        if (html == null) {
+            return null;
+        }
 
         try {
             var root = Files.createTempDirectory("ai-agents-webview-");
@@ -116,16 +118,20 @@ public class AiAgentPanel implements Disposable {
 
             for (String relativePath : findAssetPaths(html)) {
                 var contents = readResourceBytes("/webview/" + relativePath);
-                if (contents == null) continue;
+                if (contents == null) {
+                    continue;
+                }
                 var target = root.resolve(relativePath).normalize();
-                if (!target.startsWith(root)) continue;
+                if (!target.startsWith(root)) {
+                    continue;
+                }
                 Files.createDirectories(target.getParent());
                 Files.write(target, contents);
             }
 
             Files.writeString(root.resolve("index.html"), html, StandardCharsets.UTF_8);
             return root.resolve("index.html").toUri().toURL();
-        } catch (IOException ioException) {
+        } catch (IOException ex) {
             return null;
         }
     }
@@ -134,7 +140,9 @@ public class AiAgentPanel implements Disposable {
         var paths = new ArrayList<String>();
         var matcher = Pattern.compile("(?:src|href)=[\"']\\./([^\"']+)[\"']", Pattern.CASE_INSENSITIVE)
                 .matcher(html);
-        while (matcher.find()) paths.add(matcher.group(1));
+        while (matcher.find()) {
+            paths.add(matcher.group(1));
+        }
         return paths;
     }
 
@@ -148,9 +156,11 @@ public class AiAgentPanel implements Disposable {
 
     private byte[] readResourceBytes(String path) {
         try (InputStream resourceInputStream = getClass().getResourceAsStream(path)) {
-            if (resourceInputStream == null) return null;
+            if (resourceInputStream == null) {
+                return null;
+            }
             return resourceInputStream.readAllBytes();
-        } catch (IOException ioException) {
+        } catch (IOException ex) {
             return null;
         }
     }

@@ -72,8 +72,8 @@ final class CliProcessRunner {
                 }
                 outputBuf.append(trimmed);
             }
-        } catch (Exception e) {
-            logger.debug("Error reading stdout for {} {}: {}", provider.cliName, subcommand, e.getMessage());
+        } catch (Exception ex) {
+            logger.debug("Error reading stdout for {} {}: {}", provider.cliName, subcommand, ex.getMessage());
         }
 
         var exitCode = awaitExit(process, stderrThread);
@@ -154,8 +154,8 @@ final class CliProcessRunner {
             var process = pb.start();
             closeStdin(process);
             return process;
-        } catch (Exception e) {
-            logger.warn("Failed to create process for {}: {}", provider.cliName, e.getMessage());
+        } catch (Exception ex) {
+            logger.warn("Failed to create process for {}: {}", provider.cliName, ex.getMessage());
             return null;
         }
     }
@@ -163,8 +163,8 @@ final class CliProcessRunner {
     private static void closeStdin(Process process) {
         try {
             process.getOutputStream().close();
-        } catch (Exception e) {
-            logger.debug("Failed to close stdin: {}", e.getMessage());
+        } catch (Exception ex) {
+            logger.debug("Failed to close stdin: {}", ex.getMessage());
         }
     }
 
@@ -184,8 +184,8 @@ final class CliProcessRunner {
                         buf.append(line).append('\n');
                     }
                 }
-            } catch (Exception e) {
-                logger.warn("Error reading stderr for {}: {}", provider.cliName, e.getMessage());
+            } catch (Exception ex) {
+                logger.warn("Error reading stderr for {}: {}", provider.cliName, ex.getMessage());
             }
         }, provider.cliName + "-stderr");
         thread.setDaemon(true);
@@ -292,8 +292,8 @@ final class CliProcessRunner {
                 onChunk.accept(chunk);
                 state.sawOutput.set(true);
             }
-        } catch (Exception e) {
-            logger.debug("Error reading stdout for {}: {}", provider.cliName, e.getMessage());
+        } catch (Exception ex) {
+            logger.debug("Error reading stdout for {}: {}", provider.cliName, ex.getMessage());
         }
 
         if (!state.sawOutput.get()) {
@@ -312,7 +312,7 @@ final class CliProcessRunner {
             var code = process.waitFor();
             stderrThread.join(200);
             return code;
-        } catch (InterruptedException interruptedException) {
+        } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             return -1;
         }
@@ -371,7 +371,7 @@ final class CliProcessRunner {
     private static boolean waitForExitOrInterrupt(Process process, long pollMs) {
         try {
             return process.waitFor(pollMs, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException interruptedException) {
+        } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             return true;
         }

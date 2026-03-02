@@ -128,9 +128,6 @@ public class AiAgentSettingsConfigurable implements Configurable {
     @Override
     public boolean isModified() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null) {
-            return false;
-        }
         if (!isUiReady()) {
             return false;
         }
@@ -177,9 +174,6 @@ public class AiAgentSettingsConfigurable implements Configurable {
     @Override
     public void apply() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null) {
-            return;
-        }
         if (!isUiReady()) {
             return;
         }
@@ -198,9 +192,6 @@ public class AiAgentSettingsConfigurable implements Configurable {
     @Override
     public void reset() {
         var settings = AiAgentSettings.getInstance();
-        if (settings == null) {
-            return;
-        }
         if (!isUiReady()) {
             return;
         }
