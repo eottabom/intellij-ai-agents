@@ -37,7 +37,9 @@ class ChatCommandHandler {
 
     void handleChat(BridgeMessage msg, String workDir) {
         var command = resolveCommand(msg);
-        if (command == null) return;
+        if (command == null) {
+            return;
+        }
         if (command.isDoctor()) {
             dispatchDoctor(command.providerName(), workDir);
             return;

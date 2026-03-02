@@ -67,8 +67,8 @@ class JsBridge implements Disposable {
                 case GET_PROJECT_REFS   -> sendProjectRefs();
                 case UNKNOWN            -> notifier.sendError(null, "Unknown message type: " + bridgeMessage.type());
             }
-        } catch (Exception bridgeException) {
-            var errorMessage = bridgeException.getMessage();
+        } catch (Exception ex) {
+            var errorMessage = ex.getMessage();
             if (errorMessage == null) {
                 errorMessage = "Unknown error";
             }

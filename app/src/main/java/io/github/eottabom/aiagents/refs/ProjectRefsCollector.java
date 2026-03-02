@@ -52,8 +52,7 @@ public final class ProjectRefsCollector {
         }
         var ignoredDirs = buildIgnoredDirs(root);
 
-        var settings = AiAgentSettings.getInstance();
-        int scanDepth = settings != null ? settings.getProjectRefsScanDepth() : 6;
+        int scanDepth = AiAgentSettings.getInstance().getProjectRefsScanDepth();
         try (var stream = Files.walk(root, scanDepth)) {
             var array = new JsonArray();
             stream
@@ -139,9 +138,6 @@ public final class ProjectRefsCollector {
     private static Set<String> buildIgnoredDirs(Path root) {
         var merged = new LinkedHashSet<>(DEFAULT_IGNORED_DIRS);
         var settings = AiAgentSettings.getInstance();
-        if (settings == null) {
-            return merged;
-        }
         merged.addAll(settings.getExtraIgnoredDirs());
         merged.addAll(loadIgnoredDirsFromConfig(root, settings.getRefsConfigPath()));
         return merged;
