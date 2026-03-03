@@ -5,6 +5,7 @@ import io.github.eottabom.aiagents.providers.StreamChunk;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
@@ -21,7 +22,8 @@ class ChatCommandHandler {
 	private final SessionStore sessionStore;
 	private final ExecutorService executor;
 	private final Map<String, Future<?>> runningTasks;
-	private final Map<String, Long> runningTaskRequestIds = new java.util.concurrent.ConcurrentHashMap<>();
+	private final Map<String, Long> runningTaskRequestIds = new ConcurrentHashMap<>();
+	private final Map<String, String> lastProgressByProvider = new ConcurrentHashMap<>();
 	private final AtomicLong requestIdSequence = new AtomicLong();
 
 	ChatCommandHandler(
@@ -157,17 +159,25 @@ class ChatCommandHandler {
 		}
 		switch (chunk.type()) {
 			case TEXT -> notifier.sendChunk(providerName, chunk.content());
-			case TOOL_USE -> notifier.sendProgress(providerName, "\uD83D\uDD27 " + chunk.toolName());
+			case TOOL_USE -> {
+				var progressMessage = "\uD83D\uDD27 " + chunk.toolName();
+				var previousProgressMessage = lastProgressByProvider.put(providerName, progressMessage);
+				if (!progressMessage.equals(previousProgressMessage)) {
+					notifier.sendProgress(providerName, progressMessage);
+				}
+			}
 			case DONE -> {
 				if (chunk.sessionId() != null) {
 					sessionStore.save(providerName, chunk.sessionId());
 				}
 				if (completeTaskIfCurrent(providerName, requestId)) {
+					lastProgressByProvider.remove(providerName);
 					notifier.sendDone(providerName);
 				}
 			}
 			case ERROR -> {
 				if (completeTaskIfCurrent(providerName, requestId)) {
+					lastProgressByProvider.remove(providerName);
 					notifier.sendError(providerName, chunk.content());
 				}
 			}
@@ -192,6 +202,7 @@ class ChatCommandHandler {
 				if (!completeTaskIfCurrent(providerName, requestId)) {
 					return;
 				}
+				lastProgressByProvider.remove(providerName);
 				var details = buffer.output.toString().trim();
 				if (!details.isBlank()) {
 					notifier.sendChunk(providerName, details);
@@ -202,6 +213,7 @@ class ChatCommandHandler {
 				if (!completeTaskIfCurrent(providerName, requestId)) {
 					return;
 				}
+				lastProgressByProvider.remove(providerName);
 				var version = buffer.output.toString().trim();
 				var label = providerName.toUpperCase(Locale.ROOT) + " CLI 사용 가능";
 				if (!version.isBlank()) {
@@ -216,6 +228,7 @@ class ChatCommandHandler {
 	void cancelTask(String providerName) {
 		synchronized (runningTasks) {
 			runningTaskRequestIds.remove(providerName);
+			lastProgressByProvider.remove(providerName);
 			var task = runningTasks.remove(providerName);
 			if (task != null) {
 				task.cancel(true);
