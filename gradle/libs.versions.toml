@@ -1,7 +1,7 @@
 [versions]
 gson = "2.10.1"
-junit = "5.12.2"
-junit-platform = "1.12.2"
+junit = "5.14.3"
+junit-platform = "1.14.3"
 slf4j = "2.0.17"
 
 [libraries]
