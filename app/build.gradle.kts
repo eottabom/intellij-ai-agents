@@ -101,10 +101,4 @@ tasks.register("configureRunIdeSandbox") {
 tasks.named("runIde") {
     dependsOn("copyWebview")
     dependsOn("configureRunIdeSandbox")
-    doFirst {
-        val configDir = runIdeSandboxConfigDir.get().asFile
-        configDir.mkdirs()
-        configDir.resolve("disabled_plugins.txt")
-            .writeText(disabledPlugins.joinToString(separator = System.lineSeparator(), postfix = System.lineSeparator()))
-    }
 }
