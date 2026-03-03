@@ -12,6 +12,10 @@ export default function App() {
     }
 
     window.dispatchEvent(new Event('webviewReady'))
+
+    return () => {
+      window.__onInstalledClis = undefined
+    }
   }, [])
 
   if (installedClis.length === 0) {
