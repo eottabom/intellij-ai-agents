@@ -104,10 +104,13 @@ final class CliStreamParsers {
     }
 
     private static StreamChunk parseClaudeAssistantMessage(JsonObject message) {
-        if (!message.has("content")) {
+        if (!message.has("content") || !message.get("content").isJsonArray()) {
             return null;
         }
         for (JsonElement el : message.getAsJsonArray("content")) {
+            if (!el.isJsonObject()) {
+                continue;
+            }
             var item = el.getAsJsonObject();
             var itemType = CliJsonUtils.stringField(item, "type");
             if ("text".equals(itemType) && item.has("text")) {
