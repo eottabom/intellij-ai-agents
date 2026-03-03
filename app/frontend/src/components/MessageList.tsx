@@ -132,8 +132,10 @@ const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
 })
 
 export default function MessageList({ messages }: Props) {
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const prevLengthRef = useRef(0)
+	const bottomRef = useRef<HTMLDivElement>(null)
+	const prevLengthRef = useRef(0)
+	const lastStreamingScrollAtRef = useRef(0)
+	const streamingScrollTimerRef = useRef<number | null>(null)
 
   // 새 메시지 추가 시에만 자동 스크롤 (chunk 업데이트 시에는 스킵)
   useEffect(() => {
@@ -143,13 +145,36 @@ export default function MessageList({ messages }: Props) {
     }
   }, [messages])
 
-  // 스트리밍 중 마지막 메시지 업데이트 시 부드럽지 않은 즉시 스크롤
-  useEffect(() => {
-    const last = messages[messages.length - 1]
-    if (last?.isStreaming) {
-      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
-    }
-  }, [messages])
+	// 스트리밍 중 마지막 메시지 업데이트 시 부드럽지 않은 즉시 스크롤
+	useEffect(() => {
+		const last = messages[messages.length - 1]
+		if (last?.isStreaming) {
+			const now = Date.now()
+			const elapsed = now - lastStreamingScrollAtRef.current
+			if (elapsed >= 120) {
+				lastStreamingScrollAtRef.current = now
+				bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+				return
+			}
+			if (streamingScrollTimerRef.current !== null) {
+				window.clearTimeout(streamingScrollTimerRef.current)
+			}
+			const waitMs = 120 - elapsed
+			streamingScrollTimerRef.current = window.setTimeout(() => {
+				lastStreamingScrollAtRef.current = Date.now()
+				bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+				streamingScrollTimerRef.current = null
+			}, waitMs)
+		}
+	}, [messages])
+
+	useEffect(() => {
+		return () => {
+			if (streamingScrollTimerRef.current !== null) {
+				window.clearTimeout(streamingScrollTimerRef.current)
+			}
+		}
+	}, [])
 
   if (messages.length === 0) {
     return (

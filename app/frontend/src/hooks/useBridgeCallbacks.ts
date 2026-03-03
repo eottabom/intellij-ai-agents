@@ -88,9 +88,9 @@ export function useBridgeCallbacks({
 		if (chunkFlushTimerRef.current !== null) {
 			return
 		}
-    chunkFlushTimerRef.current = window.setTimeout(() => {
-		flushBufferedChunks()
-	}, 33)
+		chunkFlushTimerRef.current = window.setTimeout(() => {
+			flushBufferedChunks()
+		}, 80)
 	}, [flushBufferedChunks])
 
 	const flushBufferedProgress = useCallback(() => {
@@ -124,7 +124,7 @@ export function useBridgeCallbacks({
 		}
 		progressFlushTimerRef.current = window.setTimeout(() => {
 			flushBufferedProgress()
-		}, 80)
+		}, 120)
 	}, [flushBufferedProgress])
 
   useEffect(() => {
