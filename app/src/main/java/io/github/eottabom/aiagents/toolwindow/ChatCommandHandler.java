@@ -59,15 +59,16 @@ class ChatCommandHandler {
 
     private void dispatchChat(ResolvedCommand command, String mode, String workDir) {
         var chatMode = ChatMode.fromString(mode);
+        var userPrompt = command.prompt();
 
-        var prompt = (chatMode == ChatMode.PLAN)
-                ? wrapAsPlan(command.prompt())
-                : command.prompt();
-
-        if (prompt == null || prompt.isBlank()) {
+        if (userPrompt == null || userPrompt.isBlank()) {
             notifier.sendError(null, "Prompt is empty.");
             return;
         }
+
+        var prompt = (chatMode == ChatMode.PLAN)
+                ? wrapAsPlan(userPrompt)
+                : userPrompt;
 
         submitProviderTask(command.providerName(), provider -> {
             var sessionId = sessionStore.get(command.providerName());
