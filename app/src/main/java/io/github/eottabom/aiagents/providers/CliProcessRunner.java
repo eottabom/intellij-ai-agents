@@ -78,7 +78,9 @@ final class CliProcessRunner {
 
         var exitCode = awaitExit(process, stderrThread);
         watchdogThread.interrupt();
+        joinQuietly(watchdogThread, 200);
         cancelThread.interrupt();
+        joinQuietly(cancelThread, 200);
 
         if (state.timedOut.get()) {
             return;
@@ -135,7 +137,9 @@ final class CliProcessRunner {
 
         var exitCode = awaitExit(process, stderrThread);
         watchdogThread.interrupt();
+        joinQuietly(watchdogThread, 200);
         cancelThread.interrupt();
+        joinQuietly(cancelThread, 200);
 
         if (!state.timedOut.get()) {
             finalizeRun(provider, exitCode, lastSessionId, state, onChunk);
@@ -146,8 +150,7 @@ final class CliProcessRunner {
         var command = wrapForShell(argv);
         try {
             var pb = new ProcessBuilder(command);
-            var processWorkDir = workDir != null ? workDir : System.getProperty("user.home");
-            pb.directory(new File(processWorkDir));
+            pb.directory(new File(resolveWorkDir(workDir)));
             pb.environment().putAll(System.getenv());
             pb.redirectErrorStream(false);
 
@@ -168,7 +171,7 @@ final class CliProcessRunner {
         }
     }
 
-    private static Thread drainStderr(AiProvider provider, Process process, StringBuilder buf) {
+    private static Thread drainStderr(AiProvider provider, Process process, StringBuffer buf) {
         var thread = new Thread(() -> {
             try (var reader = new BufferedReader(
                     new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
@@ -345,6 +348,26 @@ final class CliProcessRunner {
         onChunk.accept(StreamChunk.done(lastSessionId));
     }
 
+    private static String resolveWorkDir(String workDir) {
+        if (workDir != null && new File(workDir).isDirectory()) {
+            return workDir;
+        }
+        if (workDir != null) {
+            logger.warn("workDir does not exist, falling back to user.home: {}", workDir);
+        }
+        return System.getProperty("user.home");
+    }
+
+    private static void joinQuietly(Thread thread, long timeoutMs) {
+        try {
+            thread.join(timeoutMs);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    // On Windows, ProcessBuilder passes argv directly to CreateProcess without a shell,
+    // so no shell-injection risk exists and no escaping is needed.
     private static List<String> wrapForShell(List<String> argv) {
         if (OsUtils.isWindows()) {
             return argv;
@@ -382,6 +405,6 @@ final class CliProcessRunner {
         final AtomicBoolean sawOutput = new AtomicBoolean(false);
         final AtomicBoolean sawStructuredOutput = new AtomicBoolean(false);
         final AtomicLong lastOutputAt = new AtomicLong(System.currentTimeMillis());
-        final StringBuilder stderrBuf = new StringBuilder();
+        final StringBuffer stderrBuf = new StringBuffer();
     }
 }

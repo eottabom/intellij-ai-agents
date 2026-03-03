@@ -1,7 +1,5 @@
 package io.github.eottabom.aiagents.toolwindow;
 
-import java.util.Locale;
-
 enum BridgeMessageType {
     CHAT,
     CANCEL,
@@ -15,13 +13,13 @@ enum BridgeMessageType {
         if (value == null || value.isBlank()) {
             return UNKNOWN;
         }
-        return switch (value.trim().toLowerCase(Locale.ROOT)) {
+        return switch (value.trim()) {
             case "chat" -> CHAT;
             case "cancel" -> CANCEL;
-            case "getsession" -> GET_SESSION;
-            case "clearsession" -> CLEAR_SESSION;
-            case "clearallsessions" -> CLEAR_ALL_SESSIONS;
-            case "getprojectrefs" -> GET_PROJECT_REFS;
+            case "getSession" -> GET_SESSION;
+            case "clearSession" -> CLEAR_SESSION;
+            case "clearAllSessions" -> CLEAR_ALL_SESSIONS;
+            case "getProjectRefs" -> GET_PROJECT_REFS;
             default -> UNKNOWN;
         };
     }

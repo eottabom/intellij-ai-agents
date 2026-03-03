@@ -15,6 +15,9 @@ public final class DirPathNormalizer {
         if (value.isBlank()) {
             return null;
         }
+        if (value.contains("..")) {
+            return null;
+        }
         value = value.replace("\\", "/").replaceAll("^/+|/+$", "");
         if (value.isBlank()) {
             return null;

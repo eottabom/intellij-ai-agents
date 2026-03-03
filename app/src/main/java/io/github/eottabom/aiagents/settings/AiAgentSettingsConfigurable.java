@@ -128,9 +128,6 @@ public class AiAgentSettingsConfigurable implements Configurable {
     @Override
     public boolean isModified() {
         var settings = AiAgentSettings.getInstance();
-        if (!isUiReady()) {
-            return false;
-        }
 
         if (isRefsConfigModified(settings)) {
             return true;
@@ -174,9 +171,6 @@ public class AiAgentSettingsConfigurable implements Configurable {
     @Override
     public void apply() {
         var settings = AiAgentSettings.getInstance();
-        if (!isUiReady()) {
-            return;
-        }
 
         settings.setRefsConfigPath(refsConfigPathField.getText());
         settings.setExtraIgnoredDirsRaw(extraIgnoredDirsArea.getText());
@@ -192,9 +186,6 @@ public class AiAgentSettingsConfigurable implements Configurable {
     @Override
     public void reset() {
         var settings = AiAgentSettings.getInstance();
-        if (!isUiReady()) {
-            return;
-        }
 
         refsConfigPathField.setText(settings.getRefsConfigPath());
         extraIgnoredDirsArea.setText(settings.getExtraIgnoredDirsRaw());
@@ -207,16 +198,4 @@ public class AiAgentSettingsConfigurable implements Configurable {
         scanDepthSpinner.setValue(settings.getProjectRefsScanDepth());
     }
 
-    private boolean isUiReady() {
-        if (refsConfigPathField == null || extraIgnoredDirsArea == null) {
-            return false;
-        }
-        if (skipPermissionsCheckBox == null || bypassApprovalsCheckBox == null || geminiYoloModeCheckBox == null) {
-            return false;
-        }
-        if (claudeTimeoutSpinner == null || geminiTimeoutSpinner == null || codexTimeoutSpinner == null) {
-            return false;
-        }
-        return scanDepthSpinner != null;
-    }
 }

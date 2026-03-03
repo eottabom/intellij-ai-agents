@@ -48,6 +48,7 @@ final class CliArgsBuilder {
     static List<String> buildCodexArgs(String prompt, String sessionId, boolean bypassApprovals) {
         var args = new ArrayList<String>();
         args.add("exec");
+        // --dangerously-bypass-approvals-and-sandbox is a global option for the `exec` subcommand
         if (bypassApprovals) {
             args.add("--dangerously-bypass-approvals-and-sandbox");
         }
