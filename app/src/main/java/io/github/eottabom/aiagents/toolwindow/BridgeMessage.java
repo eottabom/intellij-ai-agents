@@ -7,14 +7,14 @@ import com.google.gson.Gson;
  * 예: { "type": "chat", "cli": "claude", "prompt": "Hello", "mode": "normal" }
  */
 record BridgeMessage(
-        String type,    // chat | cancel | getSession | clearSession | clearAllSessions | getProjectRefs
-        String cli,     // claude | gemini | codex
-        String prompt,
-        String mode     // normal | plan
+		String type,    // chat | cancel | getSession | clearSession | clearAllSessions | getProjectRefs
+		String cli,     // claude | gemini | codex
+		String prompt,
+		String mode     // normal | plan
 ) {
-    private static final Gson GSON = new Gson();
+	private static final Gson GSON = new Gson();
 
-    static BridgeMessage fromJson(String json) {
-        return GSON.fromJson(json, BridgeMessage.class);
-    }
+	static BridgeMessage fromJson(String json) {
+		return GSON.fromJson(json, BridgeMessage.class);
+	}
 }

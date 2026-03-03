@@ -1,8 +1,8 @@
 package io.github.eottabom.aiagents.providers;
 
 public enum ChunkType {
-    TEXT,
-    TOOL_USE,
-    DONE,
-    ERROR
+	TEXT,
+	TOOL_USE,
+	DONE,
+	ERROR
 }

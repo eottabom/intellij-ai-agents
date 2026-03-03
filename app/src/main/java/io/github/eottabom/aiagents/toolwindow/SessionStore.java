@@ -6,32 +6,35 @@ import io.github.eottabom.aiagents.providers.AiProvider;
 
 /**
  * CLI 세션 ID 영구 저장 (IntelliJ PropertiesComponent 기반, 프로젝트 단위)
+ * <p>
+ * key 정책과 저장/조회/삭제 동작을 캡슐화한 서비스 객체이므로,
+ * 값 묶음 표현에 적합한 record 대신 class로 유지한다.
  */
 class SessionStore {
 
-    private static final String KEY_PREFIX = "aiagents.session.";
+	private static final String KEY_PREFIX = "aiagents.session.";
 
-    private final Project project;
+	private final Project project;
 
-    SessionStore(Project project) {
-        this.project = project;
-    }
+	SessionStore(Project project) {
+		this.project = project;
+	}
 
-    void save(String providerName, String sessionId) {
-        PropertiesComponent.getInstance(project).setValue(KEY_PREFIX + providerName, sessionId);
-    }
+	void save(String providerName, String sessionId) {
+		PropertiesComponent.getInstance(project).setValue(KEY_PREFIX + providerName, sessionId);
+	}
 
-    String get(String providerName) {
-        return PropertiesComponent.getInstance(project).getValue(KEY_PREFIX + providerName);
-    }
+	String get(String providerName) {
+		return PropertiesComponent.getInstance(project).getValue(KEY_PREFIX + providerName);
+	}
 
-    void clear(String providerName) {
-        PropertiesComponent.getInstance(project).unsetValue(KEY_PREFIX + providerName);
-    }
+	void clear(String providerName) {
+		PropertiesComponent.getInstance(project).unsetValue(KEY_PREFIX + providerName);
+	}
 
-    void clearAll() {
-        for (AiProvider provider : AiProvider.values()) {
-            clear(provider.cliName);
-        }
-    }
+	void clearAll() {
+		for (AiProvider provider : AiProvider.values()) {
+			clear(provider.cliName);
+		}
+	}
 }

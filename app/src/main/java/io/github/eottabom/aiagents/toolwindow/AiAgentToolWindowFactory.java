@@ -23,70 +23,70 @@ import java.util.List;
  */
 public class AiAgentToolWindowFactory implements ToolWindowFactory {
 
-    private static final Logger logger = LoggerFactory.getLogger(AiAgentToolWindowFactory.class);
-    private static final List<String> ALL_PROVIDERS = List.of("claude", "gemini", "codex");
+	private static final Logger logger = LoggerFactory.getLogger(AiAgentToolWindowFactory.class);
+	private static final List<String> ALL_PROVIDERS = List.of("claude", "gemini", "codex");
 
-    @Override
-    public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
-        var panel = new AiAgentPanel(project, ALL_PROVIDERS);
-        Disposer.register(project, panel);
-        var content = ContentFactory.getInstance()
-                .createContent(panel.getComponent(), "", false);
-        toolWindow.getContentManager().addContent(content);
+	@Override
+	public void createToolWindowContent(@NotNull Project project, @NotNull ToolWindow toolWindow) {
+		var panel = new AiAgentPanel(project, ALL_PROVIDERS);
+		Disposer.register(project, panel);
+		var content = ContentFactory.getInstance()
+				.createContent(panel.getComponent(), "", false);
+		toolWindow.getContentManager().addContent(content);
 
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            var detected = detectInstalledProviders();
-            if (!project.isDisposed()) {
-                panel.updateInstalledProviders(detected);
-            }
-        });
-    }
+		ApplicationManager.getApplication().executeOnPooledThread(() -> {
+			var detected = detectInstalledProviders();
+			if (!project.isDisposed()) {
+				panel.updateInstalledProviders(detected);
+			}
+		});
+	}
 
-    @Override
-    public boolean shouldBeAvailable(@NotNull Project project) {
-        return true;
-    }
+	@Override
+	public boolean shouldBeAvailable(@NotNull Project project) {
+		return true;
+	}
 
-    private List<String> detectInstalledProviders() {
-        List<String> installed = new ArrayList<>();
-        String whichCmd = OsUtils.isWindows() ? "where" : "which";
-        for (String provider : ALL_PROVIDERS) {
-            if (isCliInstalled(whichCmd, provider)) {
-                installed.add(provider);
-            }
-        }
-        if (installed.isEmpty()) {
-            logger.warn("No AI CLI tools detected.");
-            return Collections.emptyList();
-        }
-        return installed;
-    }
+	private List<String> detectInstalledProviders() {
+		List<String> installed = new ArrayList<>();
+		String whichCmd = OsUtils.isWindows() ? "where" : "which";
+		for (String provider : ALL_PROVIDERS) {
+			if (isCliInstalled(whichCmd, provider)) {
+				installed.add(provider);
+			}
+		}
+		if (installed.isEmpty()) {
+			logger.warn("No AI CLI tools detected.");
+			return Collections.emptyList();
+		}
+		return installed;
+	}
 
-    private boolean isCliInstalled(String whichCmd, String cliName) {
-        try {
-            var process = new ProcessBuilder(whichCmd, cliName)
-                    .redirectErrorStream(true)
-                    .start();
-            var processFinished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
-            if (!processFinished) {
-                process.destroyForcibly();
-                process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS);
-                return false;
-            }
-            try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                while (reader.readLine() != null) {
-                    // consume
-                }
-            }
-            return process.exitValue() == 0;
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            logger.debug("CLI installation check interrupted for {}", cliName);
-            return false;
-        } catch (Exception ex) {
-            logger.debug("Failed to check CLI installation for {}: {}", cliName, ex.getMessage());
-            return false;
-        }
-    }
+	private boolean isCliInstalled(String whichCmd, String cliName) {
+		try {
+			var process = new ProcessBuilder(whichCmd, cliName)
+					.redirectErrorStream(true)
+					.start();
+			var processFinished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+			if (!processFinished) {
+				process.destroyForcibly();
+				process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS);
+				return false;
+			}
+			try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+				while (reader.readLine() != null) {
+					// consume
+				}
+			}
+			return process.exitValue() == 0;
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			logger.debug("CLI installation check interrupted for {}", cliName);
+			return false;
+		} catch (Exception ex) {
+			logger.debug("Failed to check CLI installation for {}: {}", cliName, ex.getMessage());
+			return false;
+		}
+	}
 
 }

@@ -7,6 +7,12 @@ import com.intellij.ui.jcef.JBCefBrowser;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * JS 브릿지 콜백 호출 전용 객체.
+ * <p>
+ * 단순 데이터 캐리어가 아니라 호출/정규화 로직을 가진 동작 객체이므로,
+ * record로 축약하지 않고 class로 유지한다.
+ */
 class JsBridgeClientNotifier {
 
 	private static final Gson GSON = new Gson();

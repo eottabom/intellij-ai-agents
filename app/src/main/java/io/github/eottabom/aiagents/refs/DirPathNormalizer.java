@@ -4,24 +4,24 @@ import java.util.Locale;
 
 public final class DirPathNormalizer {
 
-    private DirPathNormalizer() {
-    }
+	private DirPathNormalizer() {
+	}
 
-    public static String normalize(String token) {
-        if (token == null) {
-            return null;
-        }
-        var value = token.trim();
-        if (value.isBlank()) {
-            return null;
-        }
-        if (value.contains("..")) {
-            return null;
-        }
-        value = value.replace("\\", "/").replaceAll("^/+|/+$", "");
-        if (value.isBlank()) {
-            return null;
-        }
-        return value.toLowerCase(Locale.ROOT);
-    }
+	public static String normalize(String token) {
+		if (token == null) {
+			return null;
+		}
+		var value = token.trim();
+		if (value.isBlank()) {
+			return null;
+		}
+		if (value.contains("..")) {
+			return null;
+		}
+		value = value.replace("\\", "/").replaceAll("^/+|/+$", "");
+		if (value.isBlank()) {
+			return null;
+		}
+		return value.toLowerCase(Locale.ROOT);
+	}
 }
