@@ -172,7 +172,7 @@ public class AiAgentSettingsConfigurable implements Configurable {
     public void apply() {
         var settings = AiAgentSettings.getInstance();
 
-        settings.setRefsConfigPath(refsConfigPathField.getText());
+        settings.setRefsConfigPath(refsConfigPathField.getText().trim());
         settings.setExtraIgnoredDirsRaw(extraIgnoredDirsArea.getText());
         settings.setSkipPermissions(skipPermissionsCheckBox.isSelected());
         settings.setBypassApprovals(bypassApprovalsCheckBox.isSelected());
