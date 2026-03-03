@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useRef } from 'react'
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { CliName, ProjectRef, bridge } from '../bridge'
 import type { Message } from '../components/ChatPanel'
 
 interface UseBridgeCallbacksParams {
   activeCli: CliName | null
   installedClis: CliName[]
-  msgIdRef: React.MutableRefObject<number>
-  pendingResponseCliRef: React.MutableRefObject<CliName | null>
-  pendingSessionsRef: React.MutableRefObject<{
+  msgIdRef: MutableRefObject<number>
+  pendingResponseCliRef: MutableRefObject<CliName | null>
+  pendingSessionsRef: MutableRefObject<{
     remaining: Set<CliName>
     results: Partial<Record<CliName, string>>
   } | null>
-  setMessages: React.Dispatch<React.SetStateAction<Message[]>>
-  setRunningClis: React.Dispatch<React.SetStateAction<CliName[]>>
-  setProgressByCli: React.Dispatch<React.SetStateAction<Partial<Record<CliName, string>>>>
-  setProjectRefs: React.Dispatch<React.SetStateAction<ProjectRef[]>>
+  setMessages: Dispatch<SetStateAction<Message[]>>
+  setRunningClis: Dispatch<SetStateAction<CliName[]>>
+  setProgressByCli: Dispatch<SetStateAction<Partial<Record<CliName, string>>>>
+  setProjectRefs: Dispatch<SetStateAction<ProjectRef[]>>
   appendAssistant: (content: string, cli?: CliName, variant?: Message['variant']) => void
 }
 
