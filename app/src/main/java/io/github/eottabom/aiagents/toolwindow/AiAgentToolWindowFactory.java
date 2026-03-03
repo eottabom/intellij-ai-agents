@@ -70,6 +70,7 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
             var processFinished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
             if (!processFinished) {
                 process.destroyForcibly();
+                process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS);
                 return false;
             }
             try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
