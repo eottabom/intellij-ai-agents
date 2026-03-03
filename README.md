@@ -70,7 +70,7 @@ IntelliJ IDEA 플러그인으로, **Claude, Gemini, Codex** CLI를 IDE 내부에
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `npm install -g @anthropic-ai/claude-code`
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli`
-- [Codex CLI](https://github.com/openai/codex) — OpenAI Codex CLI
+- [Codex CLI](https://github.com/openai/codex) — `npm install -g @openai/codex`
 
 ## Build & Run
 
