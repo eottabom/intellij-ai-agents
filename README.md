@@ -173,12 +173,15 @@ app/
 ├── src/main/java/io/github/eottabom/aiagents/
 │   ├── providers/          # AI CLI 프로세스 관리
 │   │   ├── AiProvider.java           # 프로바이더 enum (CLAUDE, GEMINI, CODEX)
-│   │   ├── AiProviderArgsBuilder.java # CLI 인자 생성
-│   │   ├── AiProviderParsers.java     # JSON 스트림 파싱
-│   │   ├── AiProviderProcessRunner.java # 프로세스 실행/타임아웃/취소
-│   │   ├── AiProviderJsonUtils.java   # JSON 유틸리티
+│   │   ├── CliArgsBuilder.java        # CLI 인자 생성
+│   │   ├── CliStreamParsers.java      # JSON 스트림 파싱
+│   │   ├── CliProcessRunner.java      # 프로세스 실행/타임아웃/취소
+│   │   ├── CliJsonUtils.java          # JSON 유틸리티
 │   │   ├── StreamChunk.java           # 스트림 청크 record
 │   │   └── ChunkType.java            # 청크 타입 enum
+│   ├── refs/               # 프로젝트 참조 수집/정규화
+│   │   ├── ProjectRefsCollector.java  # 프로젝트 파일 스캔
+│   │   └── DirPathNormalizer.java     # 제외 경로 정규화
 │   ├── settings/           # 플러그인 설정
 │   │   ├── AiAgentSettings.java       # 영속 설정 (refs config, ignored dirs, CLI flags, timeouts)
 │   │   └── AiAgentSettingsConfigurable.java # 설정 UI
@@ -189,8 +192,12 @@ app/
 │       ├── ChatCommandHandler.java   # 채팅 명령 처리 로직
 │       ├── JsBridgeClientNotifier.java # JS 콜백 호출
 │       ├── BridgeMessage.java        # 브릿지 메시지 record
+│       ├── BridgeMessageType.java    # 브릿지 메시지 타입
+│       ├── ChatMode.java             # plan/normal 모드
 │       ├── SessionStore.java         # 세션 ID 저장소
-│       └── ProjectRefsCollector.java  # 프로젝트 파일 스캔
+│       └── ...
+│   └── util/
+│       └── OsUtils.java              # OS 판별 유틸리티
 ├── frontend/               # React 프론트엔드
 │   └── src/
 │       ├── App.tsx
