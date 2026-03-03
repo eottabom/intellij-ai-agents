@@ -21,6 +21,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -40,6 +41,7 @@ class JsBridge implements Disposable {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private final Map<String, Future<?>> runningTasks = new ConcurrentHashMap<>();
     private final AtomicReference<String> projectRefsCache = new AtomicReference<>();
+    private final AtomicLong projectRefsVersion = new AtomicLong(0);
     private final AtomicBoolean projectRefsScanInProgress = new AtomicBoolean(false);
     private final AtomicReference<ScheduledFuture<?>> pendingInvalidation = new AtomicReference<>();
     private final JBCefJSQuery jsQuery;
@@ -148,7 +150,10 @@ class JsBridge implements Disposable {
 
     private void invalidateProjectRefsCacheDebounced() {
         var prev = pendingInvalidation.getAndSet(
-                scheduler.schedule(() -> projectRefsCache.set(null), CACHE_INVALIDATION_DELAY_MS, TimeUnit.MILLISECONDS)
+                scheduler.schedule(() -> {
+                    projectRefsVersion.incrementAndGet();
+                    projectRefsCache.set(null);
+                }, CACHE_INVALIDATION_DELAY_MS, TimeUnit.MILLISECONDS)
         );
         if (prev != null) {
             prev.cancel(false);
@@ -156,9 +161,13 @@ class JsBridge implements Disposable {
     }
 
     private void collectAndNotifyProjectRefs() {
+        var startedVersion = projectRefsVersion.get();
         try {
             var projectRefsJson = ProjectRefsCollector.collect(project);
             if (projectRefsJson == null || projectRefsJson.isBlank()) {
+                return;
+            }
+            if (startedVersion != projectRefsVersion.get()) {
                 return;
             }
             projectRefsCache.set(projectRefsJson);
