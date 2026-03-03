@@ -126,6 +126,8 @@ IntelliJ IDEA 플러그인으로, **Claude, Gemini, Codex** CLI를 IDE 내부에
 | Timeout (Claude / Gemini / Codex) | `180` / `60` / `30` 초 | CLI별 응답 타임아웃 |
 | Project refs scan depth | `6` | 프로젝트 파일 스캔 최대 깊이 |
 
+> 참고: 대규모 저장소에서는 scan depth 값을 낮추면 초기 인덱싱 시간과 자동완성 지연을 줄일 수 있습니다.
+
 ## Project Refs (`#` 자동완성)
 
 `#`을 입력하면 프로젝트 내 파일/클래스 이름을 자동완성할 수 있습니다. 프롬프트에 `#ClassName`을 삽입하면 해당 파일의 컨텍스트를 AI에게 전달하는 데 활용됩니다.
