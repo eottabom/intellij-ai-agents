@@ -46,8 +46,9 @@ final class CliStreamParsers {
             case "error":
                 return parseGeminiError(obj);
             case "init":
-                if (obj.has("session_id")) {
-                    return StreamChunk.done(obj.get("session_id").getAsString());
+                var sessionId = CliJsonUtils.stringField(obj, "session_id");
+                if (sessionId != null) {
+                    return StreamChunk.done(sessionId);
                 }
                 return null;
             case "message":
@@ -56,11 +57,13 @@ final class CliStreamParsers {
                 break;
         }
 
-        if (obj.has("text")) {
-            return StreamChunk.text(obj.get("text").getAsString());
+        var text = CliJsonUtils.stringField(obj, "text");
+        if (text != null) {
+            return StreamChunk.text(text);
         }
-        if (obj.has("delta") && obj.get("delta").isJsonPrimitive()) {
-            return StreamChunk.text(obj.get("delta").getAsString());
+        var delta = CliJsonUtils.stringField(obj, "delta");
+        if (delta != null) {
+            return StreamChunk.text(delta);
         }
         return null;
     }
@@ -74,16 +77,18 @@ final class CliStreamParsers {
         var type = CliJsonUtils.stringField(obj, "type");
         switch (nullToEmpty(type)) {
             case "thread.started":
-                if (obj.has("thread_id")) {
-                    return StreamChunk.done(obj.get("thread_id").getAsString());
+                var threadId = CliJsonUtils.stringField(obj, "thread_id");
+                if (threadId != null) {
+                    return StreamChunk.done(threadId);
                 }
                 return null;
             case "turn.started":
             case "item.started":
                 return null;
             case "error":
-                if (obj.has("message")) {
-                    return StreamChunk.error(obj.get("message").getAsString());
+                var message = CliJsonUtils.stringField(obj, "message");
+                if (message != null) {
+                    return StreamChunk.error(message);
                 }
                 return null;
             case "item.completed":
@@ -94,11 +99,13 @@ final class CliStreamParsers {
                 break;
         }
 
-        if (obj.has("text")) {
-            return StreamChunk.text(obj.get("text").getAsString());
+        var text = CliJsonUtils.stringField(obj, "text");
+        if (text != null) {
+            return StreamChunk.text(text);
         }
-        if (obj.has("thread_id")) {
-            return StreamChunk.done(obj.get("thread_id").getAsString());
+        var threadId = CliJsonUtils.stringField(obj, "thread_id");
+        if (threadId != null) {
+            return StreamChunk.done(threadId);
         }
         return null;
     }
@@ -113,11 +120,17 @@ final class CliStreamParsers {
             }
             var item = el.getAsJsonObject();
             var itemType = CliJsonUtils.stringField(item, "type");
-            if ("text".equals(itemType) && item.has("text")) {
-                return StreamChunk.text(item.get("text").getAsString());
+            if ("text".equals(itemType)) {
+                var text = CliJsonUtils.stringField(item, "text");
+                if (text != null) {
+                    return StreamChunk.text(text);
+                }
             }
-            if ("tool_use".equals(itemType) && item.has("name")) {
-                return StreamChunk.toolUse(item.get("name").getAsString());
+            if ("tool_use".equals(itemType)) {
+                var toolName = CliJsonUtils.stringField(item, "name");
+                if (toolName != null) {
+                    return StreamChunk.toolUse(toolName);
+                }
             }
         }
         return null;
@@ -131,8 +144,11 @@ final class CliStreamParsers {
         if (msg.isJsonPrimitive()) {
             return StreamChunk.error(msg.getAsString());
         }
-        if (msg.isJsonObject() && msg.getAsJsonObject().has("text")) {
-            return StreamChunk.error(msg.getAsJsonObject().get("text").getAsString());
+        if (msg.isJsonObject()) {
+            var text = CliJsonUtils.stringField(msg.getAsJsonObject(), "text");
+            if (text != null) {
+                return StreamChunk.error(text);
+            }
         }
         return StreamChunk.error(msg.toString());
     }
@@ -163,14 +179,15 @@ final class CliStreamParsers {
         var itemType = CliJsonUtils.stringField(item, "type");
         return switch (nullToEmpty(itemType)) {
 			case "agent_message" -> {
-				if (item.has("text")) {
-					yield StreamChunk.text(item.get("text").getAsString());
+                var text = CliJsonUtils.stringField(item, "text");
+				if (text != null) {
+					yield StreamChunk.text(text);
 				}
 				yield null;
 			}
 			case "command_execution" -> {
-				if (item.has("aggregated_output")) {
-					var output = item.get("aggregated_output").getAsString();
+                var output = CliJsonUtils.stringField(item, "aggregated_output");
+				if (output != null) {
                     if (output.isBlank()) {
                         yield null;
                     }
