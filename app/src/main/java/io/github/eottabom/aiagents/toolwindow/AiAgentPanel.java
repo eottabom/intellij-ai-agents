@@ -58,6 +58,9 @@ public class AiAgentPanel implements Disposable {
         browser.getJBCefClient().addLoadHandler(new CefLoadHandlerAdapter() {
             @Override
             public void onLoadEnd(CefBrowser cefBrowser, CefFrame frame, int httpStatusCode) {
+                if (!frame.isMain()) {
+                    return;
+                }
                 bridge.inject();
                 bridge.sendInstalledProviders(installedProviders);
                 bridge.sendProjectRefs();
