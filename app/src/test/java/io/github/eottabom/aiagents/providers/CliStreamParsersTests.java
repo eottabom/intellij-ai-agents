@@ -8,44 +8,44 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CliStreamParsersTests {
 
-    @Test
-    void parseGeminiLineParsesInitEventUnderTurkishLocale() {
-        var previousLocale = Locale.getDefault();
-        try {
-            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+	@Test
+	void parseGeminiLineParsesInitEventUnderTurkishLocale() {
+		var previousLocale = Locale.getDefault();
+		try {
+			Locale.setDefault(Locale.forLanguageTag("tr-TR"));
 
-            var line = "{\"type\":\"INIT\",\"session_id\":\"session-123\"}";
-            var chunk = CliStreamParsers.parseGeminiLine(line);
+			var line = "{\"type\":\"INIT\",\"session_id\":\"session-123\"}";
+			var chunk = CliStreamParsers.parseGeminiLine(line);
 
-            assertNotNull(chunk);
-            assertEquals(ChunkType.DONE, chunk.type());
-            assertEquals("session-123", chunk.sessionId());
-        } finally {
-            Locale.setDefault(previousLocale);
-        }
-    }
+			assertNotNull(chunk);
+			assertEquals(ChunkType.DONE, chunk.type());
+			assertEquals("session-123", chunk.sessionId());
+		} finally {
+			Locale.setDefault(previousLocale);
+		}
+	}
 
-    @Test
-    void parseGeminiLineReturnsNullForUnsupportedMessageRole() {
-        var line = """
-                {"type":"message","role":"user","content":{"text":"hello"}}
-                """;
+	@Test
+	void parseGeminiLineReturnsNullForUnsupportedMessageRole() {
+		var line = """
+				{"type":"message","role":"user","content":{"text":"hello"}}
+				""";
 
-        var chunk = CliStreamParsers.parseGeminiLine(line);
+		var chunk = CliStreamParsers.parseGeminiLine(line);
 
-        assertNull(chunk);
-    }
+		assertNull(chunk);
+	}
 
-    @Test
-    void parseCodexLineParsesCommandExecutionOutput() {
-        var line = """
-                {"type":"item.completed","item":{"type":"command_execution","aggregated_output":"  build ok  "}}
-                """;
+	@Test
+	void parseCodexLineParsesCommandExecutionOutput() {
+		var line = """
+				{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"  build ok  "}}
+				""";
 
-        var chunk = CliStreamParsers.parseCodexLine(line);
+		var chunk = CliStreamParsers.parseCodexLine(line);
 
-        assertNotNull(chunk);
-        assertEquals(ChunkType.TEXT, chunk.type());
-        assertEquals("build ok", chunk.content());
-    }
+		assertNotNull(chunk);
+		assertEquals(ChunkType.TEXT, chunk.type());
+		assertEquals("build ok", chunk.content());
+	}
 }

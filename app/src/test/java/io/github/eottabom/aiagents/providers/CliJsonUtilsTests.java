@@ -8,23 +8,23 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class CliJsonUtilsTests {
 
-    @Test
-    void extractGeminiTextExtractsFromPartsArray() {
-        var element = JsonParser.parseString("""
-                {"parts":[{"text":"line1"},{"text":"line2"}]}
-                """);
+	@Test
+	void extractGeminiTextExtractsFromPartsArray() {
+		var element = JsonParser.parseString("""
+				{"parts":[{"text":"line1"},{"text":"line2"}]}
+				""");
 
-        var text = CliJsonUtils.extractGeminiText(element);
+		var text = CliJsonUtils.extractGeminiText(element);
 
-        assertEquals("line1\nline2", text);
-    }
+		assertEquals("line1\nline2", text);
+	}
 
-    @Test
-    void extractGeminiTextReturnsNullForNonStringPrimitive() {
-        var element = JsonParser.parseString("123");
+	@Test
+	void extractGeminiTextReturnsNullForNonStringPrimitive() {
+		var element = JsonParser.parseString("123");
 
-        var text = CliJsonUtils.extractGeminiText(element);
+		var text = CliJsonUtils.extractGeminiText(element);
 
-        assertNull(text);
-    }
+		assertNull(text);
+	}
 }
