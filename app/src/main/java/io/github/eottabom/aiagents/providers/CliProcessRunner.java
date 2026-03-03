@@ -57,7 +57,7 @@ final class CliProcessRunner {
             while ((line = reader.readLine()) != null) {
                 state.lastOutputAt.set(System.currentTimeMillis());
                 if (Thread.currentThread().isInterrupted()) {
-                    process.destroyForcibly();
+                    terminateProcess(process);
                     break;
                 }
                 var trimmed = line.trim();
@@ -212,7 +212,7 @@ final class CliProcessRunner {
                 var idleMs = System.currentTimeMillis() - state.lastOutputAt.get();
                 if (idleMs > timeout && state.timedOut.compareAndSet(false, true)) {
                     logger.warn("timeout name={} idleMs={}", provider.cliName, idleMs);
-                    process.destroyForcibly();
+                    terminateProcess(process);
                     onChunk.accept(StreamChunk.error(
                             provider.cliName + " produced no output for "
                                     + (timeout / 1000) + "s. Check login/auth or PATH."));
@@ -232,7 +232,7 @@ final class CliProcessRunner {
             while (process.isAlive()) {
                 if (caller.isInterrupted()) {
                     logger.warn("cancel requested name={}", provider.cliName);
-                    process.destroyForcibly();
+                    terminateProcess(process);
                     return;
                 }
                 if (waitForExitOrInterrupt(process, CANCEL_POLL_MS)) {
@@ -263,7 +263,7 @@ final class CliProcessRunner {
                 }
                 state.lastOutputAt.set(System.currentTimeMillis());
                 if (Thread.currentThread().isInterrupted()) {
-                    process.destroyForcibly();
+                    terminateProcess(process);
                     return null;
                 }
 
@@ -341,6 +341,9 @@ final class CliProcessRunner {
         var stderr = state.stderrBuf.toString().trim();
 
         if (exitCode != 0) {
+            if (state.sawOutput.get() && stderr.isBlank()) {
+                return;
+            }
             if (!stderr.isBlank()) {
                 onChunk.accept(StreamChunk.error(stderr));
             } else {
@@ -372,6 +375,40 @@ final class CliProcessRunner {
             thread.join(timeoutMs);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void terminateProcess(Process process) {
+        try {
+            process.toHandle().descendants().forEach(processHandle -> {
+                if (processHandle.isAlive()) {
+                    processHandle.destroyForcibly();
+                }
+            });
+        } catch (Exception ignored) {
+            // best-effort child process cleanup
+        }
+        try {
+            if (process.isAlive()) {
+                process.destroyForcibly();
+            }
+        } catch (Exception ignored) {
+            // best-effort process cleanup
+        }
+        closeProcessStreams(process);
+    }
+
+    private static void closeProcessStreams(Process process) {
+        closeQuietly(process.getInputStream());
+        closeQuietly(process.getErrorStream());
+        closeQuietly(process.getOutputStream());
+    }
+
+    private static void closeQuietly(java.io.Closeable closeable) {
+        try {
+            closeable.close();
+        } catch (Exception ignored) {
+            // no-op
         }
     }
 
