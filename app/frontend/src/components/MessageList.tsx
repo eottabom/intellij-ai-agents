@@ -124,6 +124,9 @@ const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
   )
 }, (prev, next) => {
   return prev.msg.id === next.msg.id
+    && prev.msg.role === next.msg.role
+    && prev.msg.cli === next.msg.cli
+    && prev.msg.variant === next.msg.variant
     && prev.msg.content === next.msg.content
     && prev.msg.isStreaming === next.msg.isStreaming
 })
