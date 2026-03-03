@@ -33,9 +33,11 @@ export function useBridgeCallbacks({
 }: UseBridgeCallbacksParams) {
   const activeCliRef = useRef<CliName | null>(activeCli)
   const installedClisRef = useRef<CliName[]>([])
-  const appendAssistantRef = useRef(appendAssistant)
-  const chunkBufferRef = useRef<Partial<Record<CliName, string>>>({})
-  const chunkFlushTimerRef = useRef<number | null>(null)
+	const appendAssistantRef = useRef(appendAssistant)
+	const chunkBufferRef = useRef<Partial<Record<CliName, string>>>({})
+	const chunkFlushTimerRef = useRef<number | null>(null)
+	const progressBufferRef = useRef<Partial<Record<CliName, string>>>({})
+	const progressFlushTimerRef = useRef<number | null>(null)
 
   const flushBufferedChunks = useCallback(() => {
     if (chunkFlushTimerRef.current !== null) {
@@ -82,14 +84,48 @@ export function useBridgeCallbacks({
     })
   }, [msgIdRef, setMessages])
 
-  const scheduleChunkFlush = useCallback(() => {
-    if (chunkFlushTimerRef.current !== null) {
-      return
-    }
+	const scheduleChunkFlush = useCallback(() => {
+		if (chunkFlushTimerRef.current !== null) {
+			return
+		}
     chunkFlushTimerRef.current = window.setTimeout(() => {
-      flushBufferedChunks()
-    }, 33)
-  }, [flushBufferedChunks])
+		flushBufferedChunks()
+	}, 33)
+	}, [flushBufferedChunks])
+
+	const flushBufferedProgress = useCallback(() => {
+		if (progressFlushTimerRef.current !== null) {
+			window.clearTimeout(progressFlushTimerRef.current)
+			progressFlushTimerRef.current = null
+		}
+		const bufferedProgressEntries = Object.entries(progressBufferRef.current) as Array<[CliName, string]>
+		if (bufferedProgressEntries.length === 0) {
+			return
+		}
+		progressBufferRef.current = {}
+
+		setProgressByCli((previousProgressByCli) => {
+			let changed = false
+			const nextProgressByCli = { ...previousProgressByCli }
+			for (const [cli, text] of bufferedProgressEntries) {
+				if (nextProgressByCli[cli] === text) {
+					continue
+				}
+				nextProgressByCli[cli] = text
+				changed = true
+			}
+			return changed ? nextProgressByCli : previousProgressByCli
+		})
+	}, [setProgressByCli])
+
+	const scheduleProgressFlush = useCallback(() => {
+		if (progressFlushTimerRef.current !== null) {
+			return
+		}
+		progressFlushTimerRef.current = window.setTimeout(() => {
+			flushBufferedProgress()
+		}, 80)
+	}, [flushBufferedProgress])
 
   useEffect(() => {
     activeCliRef.current = activeCli
@@ -124,19 +160,22 @@ export function useBridgeCallbacks({
       scheduleChunkFlush()
     }) as typeof window.__onChunk
 
-    window.__onProgress = ((arg1: CliName | string, arg2?: string) => {
-      const text = arg2 !== undefined ? arg2 : String(arg1)
-      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
-      if (!cli) return
-      setProgressByCli((prev) => ({ ...prev, [cli]: text }))
-    }) as typeof window.__onProgress
+	window.__onProgress = ((arg1: CliName | string, arg2?: string) => {
+		const text = arg2 !== undefined ? arg2 : String(arg1)
+		const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
+		if (!cli) return
+		progressBufferRef.current[cli] = text
+		scheduleProgressFlush()
+	}) as typeof window.__onProgress
 
-    window.__onDone = ((cliArg?: CliName) => {
-      flushBufferedChunks()
-      if (cliArg) {
-        setRunningClis((prev) => prev.filter((c) => c !== cliArg))
-        setProgressByCli((prev) => {
-          const next = { ...prev }
+	window.__onDone = ((cliArg?: CliName) => {
+		flushBufferedChunks()
+		flushBufferedProgress()
+		if (cliArg) {
+			delete progressBufferRef.current[cliArg]
+			setRunningClis((prev) => prev.filter((c) => c !== cliArg))
+			setProgressByCli((prev) => {
+				const next = { ...prev }
           delete next[cliArg]
           return next
         })
@@ -148,10 +187,11 @@ export function useBridgeCallbacks({
           next[idx] = { ...next[idx], isStreaming: false }
           return next
         })
-      } else {
-        setRunningClis([])
-        setProgressByCli({})
-        setMessages((previousMessages) =>
+		} else {
+			progressBufferRef.current = {}
+			setRunningClis([])
+			setProgressByCli({})
+			setMessages((previousMessages) =>
           previousMessages.map((message) => (
             message.isStreaming
               ? { ...message, isStreaming: false }
@@ -162,14 +202,16 @@ export function useBridgeCallbacks({
       pendingResponseCliRef.current = null
     }) as typeof window.__onDone
 
-    window.__onError = ((arg1: CliName | string, arg2?: string) => {
-      flushBufferedChunks()
-      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
-      const error = arg2 !== undefined ? arg2 : String(arg1)
-      if (cli) {
-        setRunningClis((prev) => prev.filter((c) => c !== cli))
-        setProgressByCli((prev) => {
-          const next = { ...prev }
+	window.__onError = ((arg1: CliName | string, arg2?: string) => {
+		flushBufferedChunks()
+		flushBufferedProgress()
+		const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
+		const error = arg2 !== undefined ? arg2 : String(arg1)
+		if (cli) {
+			delete progressBufferRef.current[cli]
+			setRunningClis((prev) => prev.filter((c) => c !== cli))
+			setProgressByCli((prev) => {
+				const next = { ...prev }
           delete next[cli]
           return next
         })
@@ -188,10 +230,11 @@ export function useBridgeCallbacks({
           }
           return nextMessages
         })
-      } else {
-        setRunningClis([])
-        setProgressByCli({})
-        setMessages((previousMessages) =>
+		} else {
+			progressBufferRef.current = {}
+			setRunningClis([])
+			setProgressByCli({})
+			setMessages((previousMessages) =>
           previousMessages.map((message) => (
             message.isStreaming
               ? { ...message, isStreaming: false }
@@ -236,16 +279,17 @@ export function useBridgeCallbacks({
       }
     }) as typeof window.__onSession
 
-    return () => {
-      flushBufferedChunks()
-      window.__onChunk = (() => {}) as typeof window.__onChunk
-      window.__onProgress = (() => {}) as typeof window.__onProgress
-      window.__onDone = (() => {}) as typeof window.__onDone
+	return () => {
+		flushBufferedChunks()
+		flushBufferedProgress()
+		window.__onChunk = (() => {}) as typeof window.__onChunk
+		window.__onProgress = (() => {}) as typeof window.__onProgress
+		window.__onDone = (() => {}) as typeof window.__onDone
       window.__onError = (() => {}) as typeof window.__onError
-      window.__onProjectRefs = (() => {}) as typeof window.__onProjectRefs
-      window.__onSession = (() => {}) as typeof window.__onSession
-    }
-  }, [flushBufferedChunks, msgIdRef, scheduleChunkFlush, setMessages, setProgressByCli, setProjectRefs, setRunningClis])
+		window.__onProjectRefs = (() => {}) as typeof window.__onProjectRefs
+		window.__onSession = (() => {}) as typeof window.__onSession
+	}
+	}, [flushBufferedChunks, flushBufferedProgress, msgIdRef, scheduleChunkFlush, scheduleProgressFlush, setMessages, setProgressByCli, setProjectRefs, setRunningClis])
 
   useEffect(() => {
     const requestProjectRefs = () => bridge.getProjectRefs()
