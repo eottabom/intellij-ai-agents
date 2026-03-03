@@ -7,7 +7,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.function.Consumer;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 
 /**
@@ -19,6 +21,8 @@ class ChatCommandHandler {
     private final SessionStore sessionStore;
     private final ExecutorService executor;
     private final Map<String, Future<?>> runningTasks;
+    private final Map<String, Long> runningTaskRequestIds = new java.util.concurrent.ConcurrentHashMap<>();
+    private final AtomicLong requestIdSequence = new AtomicLong();
 
     ChatCommandHandler(
             JsBridgeClientNotifier notifier,
@@ -70,60 +74,77 @@ class ChatCommandHandler {
                 ? wrapAsPlan(userPrompt)
                 : userPrompt;
 
-        submitProviderTask(command.providerName(), provider -> {
+        submitProviderTask(command.providerName(), (provider, requestId) -> {
             var sessionId = sessionStore.get(command.providerName());
             provider.run(prompt, sessionId, workDir,
-                    chunk -> onStreamChunk(command.providerName(), chunk));
+                    chunk -> onStreamChunk(command.providerName(), requestId, chunk));
         });
     }
 
     void dispatchDoctor(String providerName, String workDir) {
         var state = new DoctorOutputBuffer();
-        submitProviderTask(providerName, provider ->
-                provider.runDoctor(workDir, chunk -> onDoctorChunk(providerName, chunk, state)));
+        submitProviderTask(providerName, (provider, requestId) ->
+                provider.runDoctor(workDir, chunk -> onDoctorChunk(providerName, requestId, chunk, state)));
     }
 
-    private void submitProviderTask(String providerName, Consumer<AiProvider> action) {
+    private void submitProviderTask(String providerName, BiConsumer<AiProvider, Long> action) {
         synchronized (runningTasks) {
             cancelTask(providerName);
-            runningTasks.put(providerName, executor.submit(() -> {
+            var requestId = requestIdSequence.incrementAndGet();
+            var futureTask = new FutureTask<Void>(() -> {
                 var provider = AiProvider.fromName(providerName);
                 if (provider.isEmpty()) {
-                    removeRunningTask(providerName);
-                    notifier.sendError(providerName, providerName + " CLI is not installed.");
+                    if (completeTaskIfCurrent(providerName, requestId)) {
+                        notifier.sendError(providerName, providerName + " CLI is not installed.");
+                    }
                     return;
                 }
                 try {
-                    action.accept(provider.get());
+                    action.accept(provider.get(), requestId);
                 } catch (Exception exception) {
-                    removeRunningTask(providerName);
-                    var message = exception.getMessage();
-                    if (message == null || message.isBlank()) {
-                        message = "Unknown error";
+                    if (completeTaskIfCurrent(providerName, requestId)) {
+                        var message = exception.getMessage();
+                        if (message == null || message.isBlank()) {
+                            message = "Unknown error";
+                        }
+                        notifier.sendError(providerName, "Failed to execute provider: " + message);
                     }
-                    notifier.sendError(providerName, "Failed to execute provider: " + message);
-                    return;
+                    return null;
                 }
-                if (removeRunningTaskIfPresent(providerName)) {
+                if (completeTaskIfCurrent(providerName, requestId)) {
                     notifier.sendDone(providerName);
                 }
-            }));
+                return null;
+            });
+            runningTaskRequestIds.put(providerName, requestId);
+            runningTasks.put(providerName, futureTask);
+            executor.execute(futureTask);
         }
     }
 
-    private void removeRunningTask(String providerName) {
+    private boolean isCurrentTask(String providerName, long requestId) {
         synchronized (runningTasks) {
+            var currentRequestId = runningTaskRequestIds.get(providerName);
+            return currentRequestId != null && currentRequestId == requestId;
+        }
+    }
+
+    private boolean completeTaskIfCurrent(String providerName, long requestId) {
+        synchronized (runningTasks) {
+            var currentRequestId = runningTaskRequestIds.get(providerName);
+            if (currentRequestId == null || currentRequestId != requestId) {
+                return false;
+            }
+            runningTaskRequestIds.remove(providerName);
             runningTasks.remove(providerName);
+            return true;
         }
     }
 
-    private boolean removeRunningTaskIfPresent(String providerName) {
-        synchronized (runningTasks) {
-            return runningTasks.remove(providerName) != null;
+    void onStreamChunk(String providerName, long requestId, StreamChunk chunk) {
+        if (!isCurrentTask(providerName, requestId)) {
+            return;
         }
-    }
-
-    void onStreamChunk(String providerName, StreamChunk chunk) {
         switch (chunk.type()) {
             case TEXT -> notifier.sendChunk(providerName, chunk.content());
             case TOOL_USE -> notifier.sendProgress(providerName, "\uD83D\uDD27 " + chunk.toolName());
@@ -131,21 +152,22 @@ class ChatCommandHandler {
                 if (chunk.sessionId() != null) {
                     sessionStore.save(providerName, chunk.sessionId());
                 }
-                synchronized (runningTasks) {
-                    runningTasks.remove(providerName);
+                if (completeTaskIfCurrent(providerName, requestId)) {
+                    notifier.sendDone(providerName);
                 }
-                notifier.sendDone(providerName);
             }
             case ERROR -> {
-                synchronized (runningTasks) {
-                    runningTasks.remove(providerName);
+                if (completeTaskIfCurrent(providerName, requestId)) {
+                    notifier.sendError(providerName, chunk.content());
                 }
-                notifier.sendError(providerName, chunk.content());
             }
         }
     }
 
-    void onDoctorChunk(String providerName, StreamChunk chunk, DoctorOutputBuffer buffer) {
+    void onDoctorChunk(String providerName, long requestId, StreamChunk chunk, DoctorOutputBuffer buffer) {
+        if (!isCurrentTask(providerName, requestId)) {
+            return;
+        }
         switch (chunk.type()) {
             case TEXT -> {
                 if (!chunk.content().isBlank()) {
@@ -157,8 +179,8 @@ class ChatCommandHandler {
             }
             case TOOL_USE -> { /* doctor는 성공/실패 요약만 노출 */ }
             case ERROR -> {
-                synchronized (runningTasks) {
-                    runningTasks.remove(providerName);
+                if (!completeTaskIfCurrent(providerName, requestId)) {
+                    return;
                 }
                 var details = buffer.output.toString().trim();
                 if (!details.isBlank()) {
@@ -167,8 +189,8 @@ class ChatCommandHandler {
                 notifier.sendError(providerName, chunk.content());
             }
             case DONE -> {
-                synchronized (runningTasks) {
-                    runningTasks.remove(providerName);
+                if (!completeTaskIfCurrent(providerName, requestId)) {
+                    return;
                 }
                 var version = buffer.output.toString().trim();
                 var label = providerName.toUpperCase(Locale.ROOT) + " CLI 사용 가능";
@@ -183,6 +205,7 @@ class ChatCommandHandler {
 
     void cancelTask(String providerName) {
         synchronized (runningTasks) {
+            runningTaskRequestIds.remove(providerName);
             var task = runningTasks.remove(providerName);
             if (task != null) {
                 task.cancel(true);
