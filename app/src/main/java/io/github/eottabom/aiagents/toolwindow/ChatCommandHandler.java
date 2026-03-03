@@ -170,7 +170,7 @@ class ChatCommandHandler {
                     runningTasks.remove(providerName);
                 }
                 var version = buffer.output.toString().trim();
-                var label = providerName.toUpperCase() + " CLI 사용 가능";
+                var label = providerName.toUpperCase(Locale.ROOT) + " CLI 사용 가능";
                 if (!version.isBlank()) {
                     label += " (v" + version + ")";
                 }
