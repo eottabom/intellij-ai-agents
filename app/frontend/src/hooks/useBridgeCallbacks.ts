@@ -49,9 +49,23 @@ export function useBridgeCallbacks({
     setMessages((previousMessages) => {
       let nextMessages = previousMessages
       for (const [cli, text] of bufferedEntries) {
-        const lastMessage = nextMessages[nextMessages.length - 1]
-        if (lastMessage?.role === 'assistant' && lastMessage.isStreaming && lastMessage.cli === cli) {
-          nextMessages = [...nextMessages.slice(0, -1), { ...lastMessage, content: lastMessage.content + text }]
+        const targetMessageIndex = [...nextMessages]
+          .map((message, messageIndex) => ({ message, messageIndex }))
+          .reverse()
+          .find(({ message }) => (
+            message.role === 'assistant'
+            && message.isStreaming
+            && message.cli === cli
+          ))?.messageIndex
+
+        if (targetMessageIndex !== undefined) {
+          const targetMessage = nextMessages[targetMessageIndex]
+          const updatedMessages = [...nextMessages]
+          updatedMessages[targetMessageIndex] = {
+            ...targetMessage,
+            content: targetMessage.content + text,
+          }
+          nextMessages = updatedMessages
           continue
         }
         nextMessages = [...nextMessages, {
