@@ -63,6 +63,13 @@ export default function InputBar({ onSend, onCancel, onTogglePlanMode, isLoading
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    const isImeComposing = e.nativeEvent.isComposing
+      || e.nativeEvent.keyCode === 229
+      || e.key === 'Process'
+    if (isImeComposing) {
+      return
+    }
+
     if (handleMenuKeys(e, hashOptions, hashIndex, setHashIndex,
       (item) => applyHash(item, text, setText, textareaRef), () => setHash(null))) {
       return
