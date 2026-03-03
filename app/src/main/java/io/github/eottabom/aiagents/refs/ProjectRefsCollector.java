@@ -8,9 +8,12 @@ import com.intellij.openapi.project.Project;
 import io.github.eottabom.aiagents.settings.AiAgentSettings;
 
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Locale;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -18,6 +21,7 @@ import java.util.Set;
 public final class ProjectRefsCollector {
 
     private static final Gson GSON = new Gson();
+    private static final int MAX_REFS = 800;
     private static final Set<String> DEFAULT_IGNORED_DIRS = Set.of(
             ".git",
             ".idea",
@@ -53,15 +57,39 @@ public final class ProjectRefsCollector {
         var ignoredDirs = buildIgnoredDirs(root);
 
         int scanDepth = AiAgentSettings.getInstanceOrDefaults().getProjectRefsScanDepth();
-        try (var stream = Files.walk(root, scanDepth)) {
-            var array = new JsonArray();
-            stream
-                    .filter(Files::isRegularFile)
-                    .filter(path -> !isIgnored(root, path, ignoredDirs))
-                    .filter(ProjectRefsCollector::isRefCandidate)
-                    .limit(800)
-                    .map(path -> toRefJson(root, path))
-                    .forEach(array::add);
+        var array = new JsonArray();
+        try {
+            Files.walkFileTree(root, Set.of(), scanDepth, new SimpleFileVisitor<>() {
+                private int emittedRefsCount = 0;
+
+                @Override
+                public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes basicFileAttributes) {
+                    if (!directory.equals(root) && isIgnored(root, directory, ignoredDirs)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes basicFileAttributes) {
+                    if (!basicFileAttributes.isRegularFile()) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (isIgnored(root, file, ignoredDirs)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (!isRefCandidate(file)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    array.add(toRefJson(root, file));
+                    emittedRefsCount++;
+                    if (emittedRefsCount >= MAX_REFS) {
+                        return FileVisitResult.TERMINATE;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
             return GSON.toJson(array);
         } catch (IOException ignored) {
             return null;
