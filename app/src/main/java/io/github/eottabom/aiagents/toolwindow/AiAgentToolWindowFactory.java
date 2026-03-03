@@ -36,7 +36,9 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
 
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
             var detected = detectInstalledProviders();
-            panel.updateInstalledProviders(detected);
+            if (!project.isDisposed()) {
+                panel.updateInstalledProviders(detected);
+            }
         });
     }
 
