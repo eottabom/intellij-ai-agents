@@ -149,11 +149,11 @@ class JsBridge implements Disposable {
     }
 
     private void invalidateProjectRefsCacheDebounced() {
+        projectRefsVersion.incrementAndGet();
+        projectRefsCache.set(null);
+
         var prev = pendingInvalidation.getAndSet(
-                scheduler.schedule(() -> {
-                    projectRefsVersion.incrementAndGet();
-                    projectRefsCache.set(null);
-                }, CACHE_INVALIDATION_DELAY_MS, TimeUnit.MILLISECONDS)
+                scheduler.schedule(this::sendProjectRefs, CACHE_INVALIDATION_DELAY_MS, TimeUnit.MILLISECONDS)
         );
         if (prev != null) {
             prev.cancel(false);

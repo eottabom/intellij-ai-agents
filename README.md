@@ -142,7 +142,7 @@ IntelliJ IDEA 플러그인으로, **Claude, Gemini, Codex** CLI를 IDE 내부에
 
 **Settings > Tools > AI Agents > Extra excluded directories** 에 제외할 디렉토리를 쉼표 또는 줄바꿈으로 입력합니다.
 
-```
+```text
 coverage, tmp, generated
 vendor/legacy
 ```
