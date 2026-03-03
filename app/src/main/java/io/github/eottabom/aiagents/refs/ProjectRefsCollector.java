@@ -52,7 +52,7 @@ public final class ProjectRefsCollector {
         }
         var ignoredDirs = buildIgnoredDirs(root);
 
-        int scanDepth = AiAgentSettings.getInstance().getProjectRefsScanDepth();
+        int scanDepth = AiAgentSettings.getInstanceOrDefaults().getProjectRefsScanDepth();
         try (var stream = Files.walk(root, scanDepth)) {
             var array = new JsonArray();
             stream
@@ -61,7 +61,6 @@ public final class ProjectRefsCollector {
                     .filter(ProjectRefsCollector::isRefCandidate)
                     .limit(800)
                     .map(path -> toRefJson(root, path))
-                    .filter(obj -> obj != null)
                     .forEach(array::add);
             return GSON.toJson(array);
         } catch (IOException ignored) {
@@ -137,7 +136,7 @@ public final class ProjectRefsCollector {
 
     private static Set<String> buildIgnoredDirs(Path root) {
         var merged = new LinkedHashSet<>(DEFAULT_IGNORED_DIRS);
-        var settings = AiAgentSettings.getInstance();
+        var settings = AiAgentSettings.getInstanceOrDefaults();
         merged.addAll(settings.getExtraIgnoredDirs());
         merged.addAll(loadIgnoredDirsFromConfig(root, settings.getRefsConfigPath()));
         return merged;

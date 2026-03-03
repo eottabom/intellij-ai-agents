@@ -15,6 +15,7 @@ import io.github.eottabom.aiagents.util.OsUtils;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -53,8 +54,8 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
             }
         }
         if (installed.isEmpty()) {
-            logger.warn("No AI CLI tools detected. Falling back to all providers.");
-            return ALL_PROVIDERS;
+            logger.warn("No AI CLI tools detected.");
+            return Collections.emptyList();
         }
         return installed;
     }
@@ -68,8 +69,12 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
                 // drain output
                 while (reader.readLine() != null) { /* consume */ }
             }
-            int exitCode = process.waitFor();
-            return exitCode == 0;
+            boolean finished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return false;
+            }
+            return process.exitValue() == 0;
         } catch (Exception ex) {
             logger.debug("Failed to check CLI installation for {}: {}", cliName, ex.getMessage());
             return false;

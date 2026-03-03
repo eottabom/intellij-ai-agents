@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -62,12 +62,90 @@ function CodeBlock({ code, language }: CodeBlockProps) {
   )
 }
 
+const markdownComponents = {
+  code({ className, children, ...props }: { className?: string; children?: React.ReactNode; [key: string]: unknown }) {
+    const match = /language-(\w+)/.exec(className || '')
+    const code = String(children).replace(/\n$/, '')
+    return match ? (
+      <CodeBlock code={code} language={match[1]} />
+    ) : (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    )
+  },
+}
+
+interface MessageBubbleProps {
+  msg: Message
+}
+
+const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
+  const meta = msg.cli ? getAgentMeta(msg.cli) : null
+  const userMention = msg.role === 'user' ? parseUserMention(msg.content) : null
+  const displayContent = userMention?.mentionKey ? userMention.rest : msg.content
+
+  return (
+    <div
+      className={`message ${msg.role} ${msg.cli ? `agent-${msg.cli}` : ''} ${msg.variant ? `variant-${msg.variant}` : ''} ${msg.isStreaming ? 'is-streaming' : ''}`}
+    >
+      {userMention?.mentionKey && (
+        <div className="message-user-meta">
+          <span className={`user-mention-tag user-mention-${userMention.mentionKey}`} aria-label={`to @${userMention.mentionKey}`}>
+            @{userMention.mentionKey}
+          </span>
+          {userMention.isDebate && <span className="user-debate-label">debate</span>}
+        </div>
+      )}
+      {msg.cli && meta && (
+        <div className="message-head">
+          <div className={`agent-badge agent-${meta.className}`}>
+            <span className="agent-badge-icon" aria-hidden="true"><AgentIcon cli={msg.cli} size={12} /></span>
+            <span className="agent-badge-label">{meta.label}</span>
+          </div>
+          <div className="message-cli">@{msg.cli}</div>
+          {msg.isStreaming && (
+            <div className="thinking-chip" aria-live="polite">
+              <span>working</span>
+              <span className="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
+            </div>
+          )}
+        </div>
+      )}
+      {msg.isStreaming ? (
+        <div className="streaming-content">{displayContent}</div>
+      ) : (
+        <ReactMarkdown components={markdownComponents}>
+          {displayContent}
+        </ReactMarkdown>
+      )}
+      {msg.isStreaming && <span className="cursor" />}
+    </div>
+  )
+}, (prev, next) => {
+  return prev.msg.id === next.msg.id
+    && prev.msg.content === next.msg.content
+    && prev.msg.isStreaming === next.msg.isStreaming
+})
+
 export default function MessageList({ messages }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
+  const prevLengthRef = useRef(0)
 
-  // 새 메시지 시 자동 스크롤
+  // 새 메시지 추가 시에만 자동 스크롤 (chunk 업데이트 시에는 스킵)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length !== prevLengthRef.current) {
+      prevLengthRef.current = messages.length
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages])
+
+  // 스트리밍 중 마지막 메시지 업데이트 시 부드럽지 않은 즉시 스크롤
+  useEffect(() => {
+    const last = messages[messages.length - 1]
+    if (last?.isStreaming) {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    }
   }, [messages])
 
   if (messages.length === 0) {
@@ -80,60 +158,9 @@ export default function MessageList({ messages }: Props) {
 
   return (
     <div className="message-list">
-      {messages.map((msg) => {
-        const meta = msg.cli ? getAgentMeta(msg.cli) : null
-        const userMention = msg.role === 'user' ? parseUserMention(msg.content) : null
-        const displayContent = userMention?.mentionKey ? userMention.rest : msg.content
-
-        return (
-          <div
-            key={msg.id}
-            className={`message ${msg.role} ${msg.cli ? `agent-${msg.cli}` : ''} ${msg.variant ? `variant-${msg.variant}` : ''} ${msg.isStreaming ? 'is-streaming' : ''}`}
-          >
-            {userMention?.mentionKey && (
-              <div className="message-user-meta">
-                <span className={`user-mention-tag user-mention-${userMention.mentionKey}`} aria-label={`to @${userMention.mentionKey}`}>
-                  @{userMention.mentionKey}
-                </span>
-                {userMention.isDebate && <span className="user-debate-label">debate</span>}
-              </div>
-            )}
-            {msg.cli && meta && (
-              <div className="message-head">
-                <div className={`agent-badge agent-${meta.className}`}>
-                  <span className="agent-badge-icon" aria-hidden="true"><AgentIcon cli={msg.cli} size={12} /></span>
-                  <span className="agent-badge-label">{meta.label}</span>
-                </div>
-                <div className="message-cli">@{msg.cli}</div>
-                {msg.isStreaming && (
-                  <div className="thinking-chip" aria-live="polite">
-                    <span>working</span>
-                    <span className="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
-                  </div>
-                )}
-              </div>
-            )}
-            <ReactMarkdown
-              components={{
-                code({ className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '')
-                  const code = String(children).replace(/\n$/, '')
-                  return match ? (
-                    <CodeBlock code={code} language={match[1]} />
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  )
-                },
-              }}
-            >
-              {displayContent}
-            </ReactMarkdown>
-            {msg.isStreaming && <span className="cursor" />}
-          </div>
-        )
-      })}
+      {messages.map((msg) => (
+        <MessageBubble key={msg.id} msg={msg} />
+      ))}
       <div ref={bottomRef} />
     </div>
   )

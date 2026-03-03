@@ -142,12 +142,21 @@ export function useBridgeCallbacks({
           '',
           ...clis.map((c) => {
             const id = results[c]
-            return `- **@${c}**: ${id ? `\`${id.slice(0, 24)}…\`` : 'no active session'}`
+            return `- **@${c}**: ${id ? `\`${id}\`` : 'no active session'}`
           }),
         ]
         appendAssistantRef.current(lines.join('\n'), undefined, 'system')
       }
     }) as typeof window.__onSession
+
+    return () => {
+      window.__onChunk = (() => {}) as typeof window.__onChunk
+      window.__onProgress = (() => {}) as typeof window.__onProgress
+      window.__onDone = (() => {}) as typeof window.__onDone
+      window.__onError = (() => {}) as typeof window.__onError
+      window.__onProjectRefs = (() => {}) as typeof window.__onProjectRefs
+      window.__onSession = (() => {}) as typeof window.__onSession
+    }
   }, [activeCli])
 
   useEffect(() => {

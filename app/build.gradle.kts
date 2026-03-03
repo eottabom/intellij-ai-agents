@@ -6,7 +6,12 @@ plugins {
 group = "io.github.eottabom.aiagents"
 version = "0.0.1"
 
-val npmCmd = if (System.getProperty("os.name").lowercase().contains("win")) "npm.cmd" else "npm"
+val npmCmd: String = if (System.getProperty("os.name").lowercase().contains("win")) {
+    "npm.cmd"
+} else {
+    val candidates = listOf("/opt/homebrew/bin/npm", "/usr/local/bin/npm")
+    candidates.firstOrNull { File(it).exists() } ?: "npm"
+}
 val runIdeSandboxConfigDir = layout.buildDirectory.dir("idea-sandbox/IC-2025.1/config")
 
 val disabledPlugins = listOf(
@@ -69,14 +74,20 @@ tasks.register<Exec>("buildWebview") {
 tasks.register<Sync>("copyWebview") {
     dependsOn("buildWebview")
     from("frontend/dist")
-    into("src/main/resources/webview")
+    into(layout.buildDirectory.dir("generated/webview-resources/webview"))
 }
 
-tasks.named("processResources") { dependsOn("copyWebview") }
+sourceSets.main {
+    resources.srcDir(layout.buildDirectory.dir("generated/webview-resources"))
+}
+
+tasks.named("processResources") { mustRunAfter("copyWebview") }
 
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.named("buildPlugin") { dependsOn("copyWebview") }
 
 tasks.register("configureRunIdeSandbox") {
     doLast {
@@ -88,6 +99,7 @@ tasks.register("configureRunIdeSandbox") {
 }
 
 tasks.named("runIde") {
+    dependsOn("copyWebview")
     dependsOn("configureRunIdeSandbox")
     doFirst {
         val configDir = runIdeSandboxConfigDir.get().asFile

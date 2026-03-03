@@ -35,6 +35,16 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
         return ApplicationManager.getApplication().getService(AiAgentSettings.class);
     }
 
+    public static AiAgentSettings getInstanceOrDefaults() {
+        var instance = ApplicationManager.getApplication().getService(AiAgentSettings.class);
+        if (instance != null) {
+            return instance;
+        }
+        var fallback = new AiAgentSettings();
+        fallback.loadState(new State());
+        return fallback;
+    }
+
     @Override
     public @Nullable State getState() {
         return state;

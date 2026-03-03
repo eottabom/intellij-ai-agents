@@ -10,6 +10,10 @@ final class CliStreamParsers {
     private CliStreamParsers() {
     }
 
+    private static String nullToEmpty(String s) {
+        return s != null ? s : "";
+    }
+
     static StreamChunk parseClaudeLine(String line) {
         var obj = CliJsonUtils.tryParseJson(line);
         if (obj == null) {
@@ -38,11 +42,7 @@ final class CliStreamParsers {
         }
 
         var type = CliJsonUtils.stringField(obj, "type");
-        var normalizedType = "";
-        if (type != null) {
-            normalizedType = type.toLowerCase(Locale.ROOT);
-        }
-        switch (normalizedType) {
+        switch (nullToEmpty(type).toLowerCase(Locale.ROOT)) {
             case "error":
                 return parseGeminiError(obj);
             case "init":
@@ -72,11 +72,7 @@ final class CliStreamParsers {
         }
 
         var type = CliJsonUtils.stringField(obj, "type");
-        var normalizedType = "";
-        if (type != null) {
-            normalizedType = type;
-        }
-        switch (normalizedType) {
+        switch (nullToEmpty(type)) {
             case "thread.started":
                 if (obj.has("thread_id")) {
                     return StreamChunk.done(obj.get("thread_id").getAsString());
@@ -162,11 +158,7 @@ final class CliStreamParsers {
         }
         var item = obj.getAsJsonObject("item");
         var itemType = CliJsonUtils.stringField(item, "type");
-        var normalizedItemType = "";
-        if (itemType != null) {
-            normalizedItemType = itemType;
-        }
-        return switch (normalizedItemType) {
+        return switch (nullToEmpty(itemType)) {
 			case "agent_message" -> {
 				if (item.has("text")) {
 					yield StreamChunk.text(item.get("text").getAsString());

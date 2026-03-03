@@ -83,15 +83,17 @@ class ChatCommandHandler {
     }
 
     private void submitProviderTask(String providerName, Consumer<AiProvider> action) {
-        cancelTask(providerName);
-        runningTasks.put(providerName, executor.submit(() -> {
-            var provider = AiProvider.fromName(providerName);
-            if (provider.isEmpty()) {
-                notifier.sendError(providerName, providerName + " CLI is not installed.");
-                return;
-            }
-            action.accept(provider.get());
-        }));
+        synchronized (runningTasks) {
+            cancelTask(providerName);
+            runningTasks.put(providerName, executor.submit(() -> {
+                var provider = AiProvider.fromName(providerName);
+                if (provider.isEmpty()) {
+                    notifier.sendError(providerName, providerName + " CLI is not installed.");
+                    return;
+                }
+                action.accept(provider.get());
+            }));
+        }
     }
 
     void onStreamChunk(String providerName, StreamChunk chunk) {
@@ -102,11 +104,15 @@ class ChatCommandHandler {
                 if (chunk.sessionId() != null) {
                     sessionStore.save(providerName, chunk.sessionId());
                 }
-                runningTasks.remove(providerName);
+                synchronized (runningTasks) {
+                    runningTasks.remove(providerName);
+                }
                 notifier.sendDone(providerName);
             }
             case ERROR -> {
-                runningTasks.remove(providerName);
+                synchronized (runningTasks) {
+                    runningTasks.remove(providerName);
+                }
                 notifier.sendError(providerName, chunk.content());
             }
         }
@@ -124,7 +130,9 @@ class ChatCommandHandler {
             }
             case TOOL_USE -> { /* doctor는 성공/실패 요약만 노출 */ }
             case ERROR -> {
-                runningTasks.remove(providerName);
+                synchronized (runningTasks) {
+                    runningTasks.remove(providerName);
+                }
                 var details = buffer.output.toString().trim();
                 if (!details.isBlank()) {
                     notifier.sendChunk(providerName, details);
@@ -132,7 +140,9 @@ class ChatCommandHandler {
                 notifier.sendError(providerName, chunk.content());
             }
             case DONE -> {
-                runningTasks.remove(providerName);
+                synchronized (runningTasks) {
+                    runningTasks.remove(providerName);
+                }
                 var version = buffer.output.toString().trim();
                 var label = providerName.toUpperCase() + " CLI 사용 가능";
                 if (!version.isBlank()) {
@@ -145,9 +155,11 @@ class ChatCommandHandler {
     }
 
     void cancelTask(String providerName) {
-        var task = runningTasks.remove(providerName);
-        if (task != null) {
-            task.cancel(true);
+        synchronized (runningTasks) {
+            var task = runningTasks.remove(providerName);
+            if (task != null) {
+                task.cancel(true);
+            }
         }
     }
 

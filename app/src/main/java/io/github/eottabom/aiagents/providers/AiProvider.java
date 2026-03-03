@@ -12,7 +12,7 @@ public enum AiProvider {
 
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
-            var settings = AiAgentSettings.getInstance();
+            var settings = AiAgentSettings.getInstanceOrDefaults();
             boolean skip = settings.isSkipPermissions();
             return CliArgsBuilder.buildClaudeArgs(prompt, sessionId, workDir, skip);
         }
@@ -24,7 +24,7 @@ public enum AiProvider {
 
         @Override
         public long timeoutMs() {
-            return AiAgentSettings.getInstance().getClaudeTimeoutSec() * 1000L;
+            return AiAgentSettings.getInstanceOrDefaults().getClaudeTimeoutSec() * 1000L;
         }
     },
 
@@ -32,7 +32,7 @@ public enum AiProvider {
 
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
-            var settings = AiAgentSettings.getInstance();
+            var settings = AiAgentSettings.getInstanceOrDefaults();
             boolean yolo = settings.isGeminiYoloMode();
             return CliArgsBuilder.buildGeminiArgs(prompt, sessionId, yolo);
         }
@@ -44,7 +44,7 @@ public enum AiProvider {
 
         @Override
         public long timeoutMs() {
-            return AiAgentSettings.getInstance().getGeminiTimeoutSec() * 1000L;
+            return AiAgentSettings.getInstanceOrDefaults().getGeminiTimeoutSec() * 1000L;
         }
     },
 
@@ -52,7 +52,7 @@ public enum AiProvider {
 
         @Override
         protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
-            var settings = AiAgentSettings.getInstance();
+            var settings = AiAgentSettings.getInstanceOrDefaults();
             boolean bypass = settings.isBypassApprovals();
             return CliArgsBuilder.buildCodexArgs(prompt, sessionId, bypass);
         }
@@ -64,7 +64,7 @@ public enum AiProvider {
 
         @Override
         public long timeoutMs() {
-            return AiAgentSettings.getInstance().getCodexTimeoutSec() * 1000L;
+            return AiAgentSettings.getInstanceOrDefaults().getCodexTimeoutSec() * 1000L;
         }
     };
 
