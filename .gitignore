@@ -36,10 +36,8 @@ app/frontend/dist
 app/frontend/node_modules
 app/frontend/.DS_Store
 app/build
-.idea
-.intellijPlatform
+app/src/main/resources/webview/
 
 .idea/**
 .intellijPlatform/**
-app/src/main/resources/webview/
-AGENTS.md
+AGENTS.loacl.md
