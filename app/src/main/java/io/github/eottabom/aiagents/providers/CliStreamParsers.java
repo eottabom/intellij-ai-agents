@@ -90,6 +90,13 @@ final class CliStreamParsers {
                 if (message != null) {
                     return StreamChunk.error(message);
                 }
+                if (obj.has("message")) {
+                    return StreamChunk.error(obj.get("message").toString());
+                }
+                var error = CliJsonUtils.stringField(obj, "error");
+                if (error != null) {
+                    return StreamChunk.error(error);
+                }
                 return null;
             case "item.completed":
                 return parseCodexItem(obj);
