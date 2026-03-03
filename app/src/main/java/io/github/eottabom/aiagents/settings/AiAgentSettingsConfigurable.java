@@ -12,6 +12,9 @@ import java.awt.*;
  * Settings > Tools > AI Agents
  */
 public class AiAgentSettingsConfigurable implements Configurable {
+    private static final int MIN_TIMEOUT_SECONDS = 10;
+    private static final int MAX_TIMEOUT_SECONDS = 600;
+
 
     private JTextField refsConfigPathField;
     private JTextArea extraIgnoredDirsArea;
@@ -192,10 +195,14 @@ public class AiAgentSettingsConfigurable implements Configurable {
         skipPermissionsCheckBox.setSelected(settings.isSkipPermissions());
         bypassApprovalsCheckBox.setSelected(settings.isBypassApprovals());
         geminiYoloModeCheckBox.setSelected(settings.isGeminiYoloMode());
-        claudeTimeoutSpinner.setValue(settings.getClaudeTimeoutSec());
-        geminiTimeoutSpinner.setValue(settings.getGeminiTimeoutSec());
-        codexTimeoutSpinner.setValue(settings.getCodexTimeoutSec());
+        claudeTimeoutSpinner.setValue(clamp(settings.getClaudeTimeoutSec(), MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS));
+        geminiTimeoutSpinner.setValue(clamp(settings.getGeminiTimeoutSec(), MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS));
+        codexTimeoutSpinner.setValue(clamp(settings.getCodexTimeoutSec(), MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS));
         scanDepthSpinner.setValue(settings.getProjectRefsScanDepth());
+    }
+
+    private static int clamp(int value, int minimumValue, int maximumValue) {
+        return Math.max(minimumValue, Math.min(maximumValue, value));
     }
 
     @Override
