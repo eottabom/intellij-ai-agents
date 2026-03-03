@@ -47,7 +47,7 @@ final class CliProcessRunner {
         }
 
         var state = new RunState();
-        var stderrThread = drainStderr(provider, process, state.stderrBuf);
+        var stderrThread = drainStderr(provider, process, state);
         var watchdogThread = startWatchdog(provider, process, state, onChunk);
         var cancelThread = watchForCancellation(provider, process);
 
@@ -133,7 +133,7 @@ final class CliProcessRunner {
         }
 
         var state = new RunState();
-        var stderrThread = drainStderr(provider, process, state.stderrBuf);
+        var stderrThread = drainStderr(provider, process, state);
         var watchdogThread = startWatchdog(provider, process, state, onChunk);
         var cancelThread = watchForCancellation(provider, process);
 
@@ -175,7 +175,7 @@ final class CliProcessRunner {
         }
     }
 
-    private static Thread drainStderr(AiProvider provider, Process process, StringBuffer buf) {
+    private static Thread drainStderr(AiProvider provider, Process process, RunState state) {
         var thread = new Thread(() -> {
             try (var reader = new BufferedReader(
                     new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
@@ -187,8 +187,9 @@ final class CliProcessRunner {
                     if (isNoiseLine(line)) {
                         continue;
                     }
-                    if (buf.length() < STDERR_BUFFER_LIMIT) {
-                        buf.append(line).append('\n');
+                    state.lastOutputAt.set(System.currentTimeMillis());
+                    if (state.stderrBuf.length() < STDERR_BUFFER_LIMIT) {
+                        state.stderrBuf.append(line).append('\n');
                     }
                 }
             } catch (Exception ex) {
