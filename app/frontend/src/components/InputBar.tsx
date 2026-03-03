@@ -90,9 +90,16 @@ export default function InputBar({ onSend, onCancel, onTogglePlanMode, isLoading
   }
 
   const handleSend = () => {
-    if (!text.trim() || isLoading) return
-    onSend(text.trim())
+    const prompt = text.trim()
+    if (!prompt || isLoading) return
+    onSend(prompt)
     setText('')
+    setMention(null)
+    setSlash(null)
+    setHash(null)
+    setMentionIndex(0)
+    setSlashIndex(0)
+    setHashIndex(0)
     textareaRef.current?.focus()
   }
 
