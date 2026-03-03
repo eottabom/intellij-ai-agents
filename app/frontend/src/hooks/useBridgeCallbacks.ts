@@ -32,6 +32,48 @@ export function useBridgeCallbacks({
 }: UseBridgeCallbacksParams) {
   const installedClisRef = useRef<CliName[]>([])
   const appendAssistantRef = useRef(appendAssistant)
+  const chunkBufferRef = useRef<Partial<Record<CliName, string>>>({})
+  const chunkFlushTimerRef = useRef<number | null>(null)
+
+  const flushBufferedChunks = useCallback(() => {
+    if (chunkFlushTimerRef.current !== null) {
+      window.clearTimeout(chunkFlushTimerRef.current)
+      chunkFlushTimerRef.current = null
+    }
+    const bufferedEntries = Object.entries(chunkBufferRef.current) as Array<[CliName, string]>
+    if (bufferedEntries.length === 0) {
+      return
+    }
+    chunkBufferRef.current = {}
+
+    setMessages((previousMessages) => {
+      let nextMessages = previousMessages
+      for (const [cli, text] of bufferedEntries) {
+        const lastMessage = nextMessages[nextMessages.length - 1]
+        if (lastMessage?.role === 'assistant' && lastMessage.isStreaming && lastMessage.cli === cli) {
+          nextMessages = [...nextMessages.slice(0, -1), { ...lastMessage, content: lastMessage.content + text }]
+          continue
+        }
+        nextMessages = [...nextMessages, {
+          id: ++msgIdRef.current,
+          role: 'assistant',
+          cli,
+          content: text,
+          isStreaming: true,
+        }]
+      }
+      return nextMessages
+    })
+  }, [msgIdRef, setMessages])
+
+  const scheduleChunkFlush = useCallback(() => {
+    if (chunkFlushTimerRef.current !== null) {
+      return
+    }
+    chunkFlushTimerRef.current = window.setTimeout(() => {
+      flushBufferedChunks()
+    }, 33)
+  }, [flushBufferedChunks])
 
   useEffect(() => {
     installedClisRef.current = installedClis
@@ -45,19 +87,21 @@ export function useBridgeCallbacks({
     window.__onChunk = ((arg1: CliName | string, arg2?: string) => {
       const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
       const text = arg2 !== undefined ? arg2 : String(arg1)
-      setMessages((prev) => {
-        const last = prev[prev.length - 1]
-        if (last?.role === 'assistant' && last.isStreaming && last.cli === cli) {
-          return [...prev.slice(0, -1), { ...last, content: last.content + text }]
-        }
-        return [...prev, {
-          id: ++msgIdRef.current,
-          role: 'assistant',
-          cli,
-          content: text,
-          isStreaming: true,
-        }]
-      })
+      if (!cli) {
+        setMessages((previousMessages) => [
+          ...previousMessages,
+          {
+            id: ++msgIdRef.current,
+            role: 'assistant',
+            content: text,
+            isStreaming: true,
+          },
+        ])
+        return
+      }
+      const previousBufferedText = chunkBufferRef.current[cli] ?? ''
+      chunkBufferRef.current[cli] = previousBufferedText + text
+      scheduleChunkFlush()
     }) as typeof window.__onChunk
 
     window.__onProgress = ((arg1: CliName | string, arg2?: string) => {
@@ -68,6 +112,7 @@ export function useBridgeCallbacks({
     }) as typeof window.__onProgress
 
     window.__onDone = ((cliArg?: CliName) => {
+      flushBufferedChunks()
       if (cliArg) {
         setRunningClis((prev) => prev.filter((c) => c !== cliArg))
         setProgressByCli((prev) => {
@@ -99,6 +144,7 @@ export function useBridgeCallbacks({
     }) as typeof window.__onDone
 
     window.__onError = ((arg1: CliName | string, arg2?: string) => {
+      flushBufferedChunks()
       const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
       const error = arg2 !== undefined ? arg2 : String(arg1)
       if (cli) {
@@ -172,6 +218,7 @@ export function useBridgeCallbacks({
     }) as typeof window.__onSession
 
     return () => {
+      flushBufferedChunks()
       window.__onChunk = (() => {}) as typeof window.__onChunk
       window.__onProgress = (() => {}) as typeof window.__onProgress
       window.__onDone = (() => {}) as typeof window.__onDone
@@ -179,7 +226,7 @@ export function useBridgeCallbacks({
       window.__onProjectRefs = (() => {}) as typeof window.__onProjectRefs
       window.__onSession = (() => {}) as typeof window.__onSession
     }
-  }, [activeCli])
+  }, [activeCli, flushBufferedChunks, msgIdRef, scheduleChunkFlush, setMessages, setProgressByCli, setProjectRefs, setRunningClis])
 
   useEffect(() => {
     const requestProjectRefs = () => bridge.getProjectRefs()
