@@ -101,6 +101,10 @@ class ChatCommandHandler {
                         message = "Unknown error";
                     }
                     notifier.sendError(providerName, "Failed to execute provider: " + message);
+                    return;
+                }
+                if (removeRunningTaskIfPresent(providerName)) {
+                    notifier.sendDone(providerName);
                 }
             }));
         }
@@ -109,6 +113,12 @@ class ChatCommandHandler {
     private void removeRunningTask(String providerName) {
         synchronized (runningTasks) {
             runningTasks.remove(providerName);
+        }
+    }
+
+    private boolean removeRunningTaskIfPresent(String providerName) {
+        synchronized (runningTasks) {
+            return runningTasks.remove(providerName) != null;
         }
     }
 

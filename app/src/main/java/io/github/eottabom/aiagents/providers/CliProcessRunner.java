@@ -342,6 +342,7 @@ final class CliProcessRunner {
 
         if (exitCode != 0) {
             if (state.sawOutput.get() && stderr.isBlank()) {
+                onChunk.accept(StreamChunk.done(lastSessionId));
                 return;
             }
             if (!stderr.isBlank()) {
