@@ -17,7 +17,7 @@ IntelliJ IDEA 플러그인으로, **Claude, Gemini, Codex** CLI를 IDE 내부에
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │  IntelliJ IDEA Plugin                       │
 │                                             │
@@ -168,7 +168,7 @@ vendor/legacy
 
 ## Project Structure
 
-```
+```shell
 app/
 ├── src/main/java/io/github/eottabom/aiagents/
 │   ├── providers/          # AI CLI 프로세스 관리
