@@ -194,8 +194,8 @@ final class CliStreamParsers {
         return switch (nullToEmpty(itemType)) {
 			case "agent_message" -> {
                 var text = CliJsonUtils.stringField(item, "text");
-				if (text != null) {
-					yield StreamChunk.text(text);
+				if (text != null && !text.isBlank()) {
+					yield StreamChunk.text(text.trim());
 				}
 				yield null;
 			}
