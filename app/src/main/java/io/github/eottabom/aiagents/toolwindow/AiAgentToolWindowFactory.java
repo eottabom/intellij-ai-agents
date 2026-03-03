@@ -79,6 +79,10 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
                 }
             }
             return process.exitValue() == 0;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            logger.debug("CLI installation check interrupted for {}", cliName);
+            return false;
         } catch (Exception ex) {
             logger.debug("Failed to check CLI installation for {}: {}", cliName, ex.getMessage());
             return false;

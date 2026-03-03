@@ -49,7 +49,7 @@ final class CliProcessRunner {
         var state = new RunState();
         var stderrThread = drainStderr(provider, process, state);
         var watchdogThread = startWatchdog(provider, process, state, onChunk);
-        var cancelThread = watchForCancellation(provider, process);
+        var cancelThread = watchForCancellation(provider, process, state);
 
         var outputBuf = new StringBuilder();
         try (var reader = new BufferedReader(
@@ -85,7 +85,7 @@ final class CliProcessRunner {
         cancelThread.interrupt();
         joinQuietly(cancelThread, 200);
 
-        if (state.timedOut.get()) {
+        if (state.timedOut.get() || state.cancelled.get()) {
             return;
         }
 
@@ -135,7 +135,7 @@ final class CliProcessRunner {
         var state = new RunState();
         var stderrThread = drainStderr(provider, process, state);
         var watchdogThread = startWatchdog(provider, process, state, onChunk);
-        var cancelThread = watchForCancellation(provider, process);
+        var cancelThread = watchForCancellation(provider, process, state);
 
         var lastSessionId = readStdout(provider, process, state, onChunk);
 
@@ -145,7 +145,7 @@ final class CliProcessRunner {
         cancelThread.interrupt();
         joinQuietly(cancelThread, 200);
 
-        if (!state.timedOut.get()) {
+        if (!state.timedOut.get() && !state.cancelled.get()) {
             finalizeRun(provider, exitCode, lastSessionId, state, onChunk);
         }
     }
@@ -229,12 +229,13 @@ final class CliProcessRunner {
         return thread;
     }
 
-    private static Thread watchForCancellation(AiProvider provider, Process process) {
+    private static Thread watchForCancellation(AiProvider provider, Process process, RunState state) {
         var caller = Thread.currentThread();
 
         var thread = new Thread(() -> {
             while (process.isAlive()) {
                 if (caller.isInterrupted()) {
+                    state.cancelled.set(true);
                     logger.warn("cancel requested name={}", provider.cliName);
                     terminateProcess(process);
                     return;
@@ -449,6 +450,7 @@ final class CliProcessRunner {
 
     private static final class RunState {
         final AtomicBoolean timedOut = new AtomicBoolean(false);
+        final AtomicBoolean cancelled = new AtomicBoolean(false);
         final AtomicBoolean sawOutput = new AtomicBoolean(false);
         final AtomicBoolean sawStructuredOutput = new AtomicBoolean(false);
         final AtomicLong lastOutputAt = new AtomicLong(System.currentTimeMillis());

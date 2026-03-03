@@ -118,7 +118,17 @@ class ChatCommandHandler {
             });
             runningTaskRequestIds.put(providerName, requestId);
             runningTasks.put(providerName, futureTask);
-            executor.execute(futureTask);
+            try {
+                executor.execute(futureTask);
+            } catch (Exception exception) {
+                runningTaskRequestIds.remove(providerName);
+                runningTasks.remove(providerName);
+                var message = exception.getMessage();
+                if (message == null || message.isBlank()) {
+                    message = "Executor rejected task";
+                }
+                notifier.sendError(providerName, "Failed to schedule provider task: " + message);
+            }
         }
     }
 

@@ -106,13 +106,13 @@ public class AiAgentSettingsConfigurable implements Configurable {
         constraints.gridy++;
         var timeoutPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         timeoutPanel.add(new JLabel("Claude:"));
-        claudeTimeoutSpinner = new JSpinner(new SpinnerNumberModel(180, 10, 600, 10));
+        claudeTimeoutSpinner = new JSpinner(new SpinnerNumberModel(180, MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, MIN_TIMEOUT_SECONDS));
         timeoutPanel.add(claudeTimeoutSpinner);
         timeoutPanel.add(new JLabel("Gemini:"));
-        geminiTimeoutSpinner = new JSpinner(new SpinnerNumberModel(60, 10, 600, 10));
+        geminiTimeoutSpinner = new JSpinner(new SpinnerNumberModel(60, MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, MIN_TIMEOUT_SECONDS));
         timeoutPanel.add(geminiTimeoutSpinner);
         timeoutPanel.add(new JLabel("Codex:"));
-        codexTimeoutSpinner = new JSpinner(new SpinnerNumberModel(30, 10, 600, 10));
+        codexTimeoutSpinner = new JSpinner(new SpinnerNumberModel(30, MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, MIN_TIMEOUT_SECONDS));
         timeoutPanel.add(codexTimeoutSpinner);
         formPanel.add(timeoutPanel, constraints);
     }
@@ -162,13 +162,16 @@ public class AiAgentSettingsConfigurable implements Configurable {
     }
 
     private boolean isTimeoutsModified(AiAgentSettings settings) {
-        if (settings.getClaudeTimeoutSec() != (int) claudeTimeoutSpinner.getValue()) {
+        var normalizedClaudeTimeout = clamp(settings.getClaudeTimeoutSec(), MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS);
+        if (normalizedClaudeTimeout != (int) claudeTimeoutSpinner.getValue()) {
             return true;
         }
-        if (settings.getGeminiTimeoutSec() != (int) geminiTimeoutSpinner.getValue()) {
+        var normalizedGeminiTimeout = clamp(settings.getGeminiTimeoutSec(), MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS);
+        if (normalizedGeminiTimeout != (int) geminiTimeoutSpinner.getValue()) {
             return true;
         }
-        return settings.getCodexTimeoutSec() != (int) codexTimeoutSpinner.getValue();
+        var normalizedCodexTimeout = clamp(settings.getCodexTimeoutSec(), MIN_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS);
+        return normalizedCodexTimeout != (int) codexTimeoutSpinner.getValue();
     }
 
     @Override
