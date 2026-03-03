@@ -258,6 +258,9 @@ final class CliProcessRunner {
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
+                if (state.timedOut.get()) {
+                    return lastSessionId;
+                }
                 state.lastOutputAt.set(System.currentTimeMillis());
                 if (Thread.currentThread().isInterrupted()) {
                     process.destroyForcibly();
@@ -293,6 +296,9 @@ final class CliProcessRunner {
                     continue;
                 }
 
+                if (state.timedOut.get()) {
+                    return lastSessionId;
+                }
                 onChunk.accept(chunk);
                 state.sawOutput.set(true);
             }
@@ -300,6 +306,9 @@ final class CliProcessRunner {
             logger.debug("Error reading stdout for {}: {}", provider.cliName, ex.getMessage());
         }
 
+        if (state.timedOut.get()) {
+            return lastSessionId;
+        }
         if (!state.sawOutput.get()) {
             var plainText = plainTextBuf.toString().trim();
             if (!plainText.isBlank()) {
