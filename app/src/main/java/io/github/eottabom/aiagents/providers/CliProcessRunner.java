@@ -20,6 +20,7 @@ final class CliProcessRunner {
     private static final Logger logger = LoggerFactory.getLogger(CliProcessRunner.class);
     private static final int STDERR_BUFFER_LIMIT = 8_000;
     private static final int PLAINTEXT_BUFFER_LIMIT = 8_000;
+    private static final int SUBCOMMAND_OUTPUT_BUFFER_LIMIT = 16_000;
     private static final long WATCHDOG_POLL_MS = 1_000;
     private static final long CANCEL_POLL_MS = 100;
 
@@ -67,10 +68,12 @@ final class CliProcessRunner {
                 if (isNoiseLine(trimmed)) {
                     continue;
                 }
-                if (!outputBuf.isEmpty()) {
-                    outputBuf.append('\n');
+                if (outputBuf.length() < SUBCOMMAND_OUTPUT_BUFFER_LIMIT) {
+                    if (!outputBuf.isEmpty()) {
+                        outputBuf.append('\n');
+                    }
+                    outputBuf.append(trimmed);
                 }
-                outputBuf.append(trimmed);
             }
         } catch (Exception ex) {
             logger.debug("Error reading stdout for {} {}: {}", provider.cliName, subcommand, ex.getMessage());
