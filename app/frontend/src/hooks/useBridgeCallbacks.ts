@@ -145,14 +145,13 @@ export function useBridgeCallbacks({
       } else {
         setRunningClis([])
         setProgressByCli({})
-        setMessages((prev) => {
-          const idx = [...prev].map((m, i) => ({ m, i })).reverse()
-            .find(({ m }) => m.isStreaming)?.i
-          if (idx === undefined) return prev
-          const next = [...prev]
-          next[idx] = { ...next[idx], isStreaming: false }
-          return next
-        })
+        setMessages((previousMessages) =>
+          previousMessages.map((message) => (
+            message.isStreaming
+              ? { ...message, isStreaming: false }
+              : message
+          )),
+        )
       }
       pendingResponseCliRef.current = null
     }) as typeof window.__onDone
