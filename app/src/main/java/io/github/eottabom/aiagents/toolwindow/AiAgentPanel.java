@@ -45,14 +45,15 @@ public class AiAgentPanel implements Disposable {
 
         JBCefClient client = JBCefApp.getInstance().createClient();
         client.setProperty(JBCefClient.Properties.JS_QUERY_POOL_SIZE, 1);
-        Disposer.register(project, client);
+        Disposer.register(this, client);
 
         browser = new JBCefBrowserBuilder()
                 .setClient(client)
                 .build();
+        Disposer.register(this, browser);
 
         bridge = new JsBridge(browser, project);
-        Disposer.register(project, bridge);
+        Disposer.register(this, bridge);
 
         browser.getJBCefClient().addLoadHandler(new CefLoadHandlerAdapter() {
             @Override
