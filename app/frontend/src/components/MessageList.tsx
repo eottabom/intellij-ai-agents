@@ -91,7 +91,7 @@ const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
     >
       {userMention?.mentionKey && (
         <div className="message-user-meta">
-          <span className={`user-mention-tag user-mention-${userMention.mentionKey}`} aria-label={`to @${userMention.mentionKey}`}>
+          <span className={`user-mention-tag user-mention-${userMention.mentionKey}`}>
             @{userMention.mentionKey}
           </span>
           {userMention.isDebate && <span className="user-debate-label">debate</span>}
