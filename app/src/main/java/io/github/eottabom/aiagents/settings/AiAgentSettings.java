@@ -16,6 +16,7 @@ import java.util.Set;
 @Service(Service.Level.APP)
 @State(name = "AiAgentSettings", storages = @Storage("aiagents.xml"))
 public final class AiAgentSettings implements PersistentStateComponent<AiAgentSettings.State> {
+    private static final int MIN_TIMEOUT_SECONDS = 10;
 
     public static final class State {
         public String refsConfigPath = ".aiagents/refs-config.json";
@@ -122,31 +123,32 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
     }
 
     public int getClaudeTimeoutSec() {
-        return positiveOrDefault(state.claudeTimeoutSec, 180);
+        return clampTimeoutOrDefault(state.claudeTimeoutSec, 180);
     }
 
     public void setClaudeTimeoutSec(int sec) {
-        state.claudeTimeoutSec = Math.max(10, sec);
+        state.claudeTimeoutSec = Math.max(MIN_TIMEOUT_SECONDS, sec);
     }
 
     public int getGeminiTimeoutSec() {
-        return positiveOrDefault(state.geminiTimeoutSec, 60);
+        return clampTimeoutOrDefault(state.geminiTimeoutSec, 60);
     }
 
     public void setGeminiTimeoutSec(int sec) {
-        state.geminiTimeoutSec = Math.max(10, sec);
+        state.geminiTimeoutSec = Math.max(MIN_TIMEOUT_SECONDS, sec);
     }
 
     public int getCodexTimeoutSec() {
-        return positiveOrDefault(state.codexTimeoutSec, 30);
+        return clampTimeoutOrDefault(state.codexTimeoutSec, 30);
     }
 
     public void setCodexTimeoutSec(int sec) {
-        state.codexTimeoutSec = Math.max(10, sec);
+        state.codexTimeoutSec = Math.max(MIN_TIMEOUT_SECONDS, sec);
     }
 
-    private static int positiveOrDefault(int value, int defaultValue) {
-        return value > 0 ? value : defaultValue;
+    private static int clampTimeoutOrDefault(int value, int defaultValue) {
+        var resolvedValue = value > 0 ? value : defaultValue;
+        return Math.max(MIN_TIMEOUT_SECONDS, resolvedValue);
     }
 
     private static final int MAX_SCAN_DEPTH = 20;
