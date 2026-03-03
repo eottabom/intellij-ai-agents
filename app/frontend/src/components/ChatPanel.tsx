@@ -224,6 +224,9 @@ export default function ChatPanel({ installedClis }: Props) {
     })
     setRunningClis([])
     setProgressByCli({})
+    setMessages((previousMessages) =>
+      previousMessages.map((message) => (message.isStreaming ? { ...message, isStreaming: false } : message)),
+    )
     pendingResponseCliRef.current = null
   }
 
