@@ -89,19 +89,20 @@ final class CliProcessRunner {
         var output = outputBuf.toString().trim();
         var stderr = state.stderrBuf.toString().trim();
 
+        if (exitCode != 0) {
+            if (!stderr.isBlank()) {
+                onChunk.accept(StreamChunk.error(stderr));
+            } else {
+                onChunk.accept(StreamChunk.error(
+                        provider.cliName + " " + subcommand + " exited with code " + exitCode));
+            }
+            return;
+        }
+
         if (!output.isBlank()) {
             onChunk.accept(StreamChunk.text(output));
         } else if (!stderr.isBlank()) {
-            if (exitCode == 0) {
-                onChunk.accept(StreamChunk.text(stderr));
-            } else {
-                onChunk.accept(StreamChunk.error(stderr));
-                return;
-            }
-        } else if (exitCode != 0) {
-            onChunk.accept(StreamChunk.error(
-                    provider.cliName + " " + subcommand + " exited with code " + exitCode));
-            return;
+            onChunk.accept(StreamChunk.text(stderr));
         }
 
         onChunk.accept(StreamChunk.done(null));
@@ -330,19 +331,18 @@ final class CliProcessRunner {
     ) {
         var stderr = state.stderrBuf.toString().trim();
 
-        if (!state.sawOutput.get() && !stderr.isBlank()) {
-            if (exitCode == 0) {
-                onChunk.accept(StreamChunk.text(stderr));
-                state.sawOutput.set(true);
-            } else {
+        if (exitCode != 0) {
+            if (!stderr.isBlank()) {
                 onChunk.accept(StreamChunk.error(stderr));
-                return;
+            } else {
+                onChunk.accept(StreamChunk.error(provider.cliName + " exited with code " + exitCode));
             }
+            return;
         }
 
-        if (exitCode != 0 && !state.sawOutput.get()) {
-            onChunk.accept(StreamChunk.error(provider.cliName + " exited with code " + exitCode));
-            return;
+        if (!state.sawOutput.get() && !stderr.isBlank()) {
+            onChunk.accept(StreamChunk.text(stderr));
+            state.sawOutput.set(true);
         }
 
         onChunk.accept(StreamChunk.done(lastSessionId));
