@@ -170,13 +170,17 @@ export default function ChatPanel({ installedClis }: Props) {
     if (/^\/session$/i.test(parsedPrompt.trim())) {
       if (installedClis.length === 0) return
       pendingSessionsRef.current = { remaining: new Set(installedClis), results: {} }
-      installedClis.forEach((cli) => bridge.getSession(cli))
+      installedClis.forEach((cli) => {
+        bridge.getSession(cli)
+      })
       return
     }
 
     if (/^\/doctor$/i.test(parsedPrompt.trim())) {
       const targetClis = parsed.target === 'all' ? [...installedClis] : [parsed.target]
-      targetClis.forEach((cli) => bridge.chat(cli, '/doctor', 'normal'))
+      targetClis.forEach((cli) => {
+        bridge.chat(cli, '/doctor', 'normal')
+      })
       setMessages((prev) => [
         ...prev,
         {
@@ -215,7 +219,9 @@ export default function ChatPanel({ installedClis }: Props) {
   }
 
   const handleCancel = () => {
-    runningClis.forEach((cli) => bridge.cancel(cli))
+    runningClis.forEach((cli) => {
+      bridge.cancel(cli)
+    })
     setRunningClis([])
     setProgressByCli({})
     pendingResponseCliRef.current = null
