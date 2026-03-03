@@ -12,11 +12,15 @@ final class CliJsonUtils {
     }
 
     static JsonObject tryParseJson(String line) {
-        if (!line.startsWith("{")) {
+        if (line == null) {
+            return null;
+        }
+        var trimmedLine = line.stripLeading();
+        if (!trimmedLine.startsWith("{")) {
             return null;
         }
         try {
-            return JsonParser.parseString(line).getAsJsonObject();
+            return JsonParser.parseString(trimmedLine).getAsJsonObject();
         } catch (Exception ignored) {
             return null;
         }
