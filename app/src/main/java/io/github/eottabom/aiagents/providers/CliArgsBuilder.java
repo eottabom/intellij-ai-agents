@@ -18,7 +18,7 @@ final class CliArgsBuilder {
             args.add("--resume");
             args.add(sessionId);
         }
-        if (workDir != null) {
+        if (workDir != null && !workDir.isBlank()) {
             args.add("--add-dir");
             args.add(workDir);
         }
