@@ -212,11 +212,12 @@ export default function InputBar({ onSend, onCancel, onTogglePlanMode, isLoading
       )}
       <div className="input-actions">
         {isLoading ? (
-          <button className="btn cancel" onClick={onCancel}>
+          <button type="button" className="btn cancel" onClick={onCancel}>
             Stop
           </button>
         ) : (
           <button
+            type="button"
             className="btn send"
             onClick={handleSend}
             disabled={!text.trim() || installedClis.length === 0}
