@@ -108,9 +108,31 @@ export function useBridgeCallbacks({
           delete next[cli]
           return next
         })
+        setMessages((previousMessages) => {
+          const streamingMessageIndex = [...previousMessages]
+            .map((message, messageIndex) => ({ message, messageIndex }))
+            .reverse()
+            .find(({ message }) => message.isStreaming && message.cli === cli)?.messageIndex
+          if (streamingMessageIndex === undefined) {
+            return previousMessages
+          }
+          const nextMessages = [...previousMessages]
+          nextMessages[streamingMessageIndex] = {
+            ...nextMessages[streamingMessageIndex],
+            isStreaming: false,
+          }
+          return nextMessages
+        })
       } else {
         setRunningClis([])
         setProgressByCli({})
+        setMessages((previousMessages) =>
+          previousMessages.map((message) => (
+            message.isStreaming
+              ? { ...message, isStreaming: false }
+              : message
+          )),
+        )
       }
       setMessages((prev) => [
         ...prev,
