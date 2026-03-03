@@ -36,7 +36,7 @@ final class CliProcessRunner {
         argv.add(provider.cliName);
         argv.add(subcommand);
 
-        logger.warn("run subcommand start={} subcommand={}", provider.cliName, subcommand);
+        logger.info("run subcommand start={} subcommand={}", provider.cliName, subcommand);
 
         var process = createProcess(provider, argv, workDir);
         if (process == null) {
@@ -120,7 +120,7 @@ final class CliProcessRunner {
         argv.addAll(provider.buildRunArgs(prompt, sessionId, workDir));
 
         var promptLength = prompt != null ? prompt.length() : 0;
-        logger.warn("run start={} promptLen={}", provider.cliName, promptLength);
+        logger.info("run start={} promptLen={}", provider.cliName, promptLength);
 
         var process = createProcess(provider, argv, workDir);
         if (process == null) {
