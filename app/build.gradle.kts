@@ -3,6 +3,26 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.5.0"
 }
 
+abstract class ConfigureRunIdeSandboxTask : DefaultTask() {
+    @get:OutputFile
+    abstract val disabledPluginsFile: RegularFileProperty
+
+    @get:Input
+    abstract val disabledPluginIds: ListProperty<String>
+
+    @TaskAction
+    fun writeDisabledPlugins() {
+        val outputFile = disabledPluginsFile.get().asFile
+        outputFile.parentFile.mkdirs()
+        outputFile.writeText(
+            disabledPluginIds.get().joinToString(
+                separator = System.lineSeparator(),
+                postfix = System.lineSeparator(),
+            ),
+        )
+    }
+}
+
 group = "io.github.eottabom.aiagents"
 version = "0.0.1"
 
@@ -90,13 +110,9 @@ tasks.test {
 
 tasks.named("buildPlugin") { dependsOn("copyWebview") }
 
-tasks.register("configureRunIdeSandbox") {
-    doLast {
-        val configDir = runIdeSandboxConfigDir.get().asFile
-        configDir.mkdirs()
-        configDir.resolve("disabled_plugins.txt")
-            .writeText(disabledPlugins.joinToString(separator = System.lineSeparator(), postfix = System.lineSeparator()))
-    }
+tasks.register<ConfigureRunIdeSandboxTask>("configureRunIdeSandbox") {
+    disabledPluginsFile.set(runIdeSandboxConfigDir.map { it.file("disabled_plugins.txt") })
+    disabledPluginIds.set(disabledPlugins)
 }
 
 tasks.named("runIde") {

@@ -97,7 +97,7 @@ class ChatCommandHandler {
                     if (completeTaskIfCurrent(providerName, requestId)) {
                         notifier.sendError(providerName, providerName + " CLI is not installed.");
                     }
-                    return;
+                    return null;
                 }
                 try {
                     action.accept(provider.get(), requestId);
