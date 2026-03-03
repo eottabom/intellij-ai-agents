@@ -88,11 +88,27 @@ class ChatCommandHandler {
             runningTasks.put(providerName, executor.submit(() -> {
                 var provider = AiProvider.fromName(providerName);
                 if (provider.isEmpty()) {
+                    removeRunningTask(providerName);
                     notifier.sendError(providerName, providerName + " CLI is not installed.");
                     return;
                 }
-                action.accept(provider.get());
+                try {
+                    action.accept(provider.get());
+                } catch (Exception exception) {
+                    removeRunningTask(providerName);
+                    var message = exception.getMessage();
+                    if (message == null || message.isBlank()) {
+                        message = "Unknown error";
+                    }
+                    notifier.sendError(providerName, "Failed to execute provider: " + message);
+                }
             }));
+        }
+    }
+
+    private void removeRunningTask(String providerName) {
+        synchronized (runningTasks) {
+            runningTasks.remove(providerName);
         }
     }
 
