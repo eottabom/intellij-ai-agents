@@ -198,4 +198,17 @@ public class AiAgentSettingsConfigurable implements Configurable {
         scanDepthSpinner.setValue(settings.getProjectRefsScanDepth());
     }
 
+    @Override
+    public void disposeUIResources() {
+        refsConfigPathField = null;
+        extraIgnoredDirsArea = null;
+        skipPermissionsCheckBox = null;
+        bypassApprovalsCheckBox = null;
+        geminiYoloModeCheckBox = null;
+        claudeTimeoutSpinner = null;
+        geminiTimeoutSpinner = null;
+        codexTimeoutSpinner = null;
+        scanDepthSpinner = null;
+    }
+
 }
