@@ -23,7 +23,7 @@ final class CliStreamParsers {
         var type = CliJsonUtils.stringField(obj, "type");
         var sessionId = CliJsonUtils.stringField(obj, "session_id");
 
-        if ("assistant".equals(type) && obj.has("message")) {
+        if ("assistant".equals(type) && obj.has("message") && obj.get("message").isJsonObject()) {
             var chunk = parseClaudeAssistantMessage(obj.getAsJsonObject("message"));
             if (chunk != null) {
                 return chunk;
