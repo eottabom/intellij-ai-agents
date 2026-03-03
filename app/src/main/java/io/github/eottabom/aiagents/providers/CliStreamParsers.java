@@ -114,6 +114,9 @@ final class CliStreamParsers {
         if (!message.has("content") || !message.get("content").isJsonArray()) {
             return null;
         }
+        var textBuilder = new StringBuilder();
+        String firstToolName = null;
+
         for (JsonElement el : message.getAsJsonArray("content")) {
             if (!el.isJsonObject()) {
                 continue;
@@ -122,16 +125,27 @@ final class CliStreamParsers {
             var itemType = CliJsonUtils.stringField(item, "type");
             if ("text".equals(itemType)) {
                 var text = CliJsonUtils.stringField(item, "text");
-                if (text != null) {
-                    return StreamChunk.text(text);
+                if (text != null && !text.isBlank()) {
+                    if (!textBuilder.isEmpty()) {
+                        textBuilder.append('\n');
+                    }
+                    textBuilder.append(text);
                 }
+                continue;
             }
             if ("tool_use".equals(itemType)) {
                 var toolName = CliJsonUtils.stringField(item, "name");
-                if (toolName != null) {
-                    return StreamChunk.toolUse(toolName);
+                if (toolName != null && firstToolName == null) {
+                    firstToolName = toolName;
                 }
             }
+        }
+
+        if (!textBuilder.isEmpty()) {
+            return StreamChunk.text(textBuilder.toString());
+        }
+        if (firstToolName != null) {
+            return StreamChunk.toolUse(firstToolName);
         }
         return null;
     }
