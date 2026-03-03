@@ -6,13 +6,14 @@ plugins {
 group = "io.github.eottabom.aiagents"
 version = "0.0.1"
 
+val ideVersion = "2025.1"
 val npmCmd: String = if (System.getProperty("os.name").lowercase().contains("win")) {
     "npm.cmd"
 } else {
     val candidates = listOf("/opt/homebrew/bin/npm", "/usr/local/bin/npm")
     candidates.firstOrNull { File(it).exists() } ?: "npm"
 }
-val runIdeSandboxConfigDir = layout.buildDirectory.dir("idea-sandbox/IC-2025.1/config")
+val runIdeSandboxConfigDir = layout.buildDirectory.dir("idea-sandbox/IC-$ideVersion/config")
 
 val disabledPlugins = listOf(
     "com.jetbrains.codeWithMe",
@@ -38,7 +39,7 @@ dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 
     intellijPlatform {
-        intellijIdeaCommunity("2025.1")
+        intellijIdeaCommunity(ideVersion)
     }
 }
 
