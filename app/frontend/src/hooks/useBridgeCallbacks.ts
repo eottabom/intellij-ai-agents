@@ -31,6 +31,7 @@ export function useBridgeCallbacks({
   setProjectRefs,
   appendAssistant,
 }: UseBridgeCallbacksParams) {
+  const activeCliRef = useRef<CliName | null>(activeCli)
   const installedClisRef = useRef<CliName[]>([])
   const appendAssistantRef = useRef(appendAssistant)
   const chunkBufferRef = useRef<Partial<Record<CliName, string>>>({})
@@ -91,6 +92,10 @@ export function useBridgeCallbacks({
   }, [flushBufferedChunks])
 
   useEffect(() => {
+    activeCliRef.current = activeCli
+  }, [activeCli])
+
+  useEffect(() => {
     installedClisRef.current = installedClis
   }, [installedClis])
 
@@ -100,7 +105,7 @@ export function useBridgeCallbacks({
 
   useEffect(() => {
     window.__onChunk = ((arg1: CliName | string, arg2?: string) => {
-      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
+      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
       const text = arg2 !== undefined ? arg2 : String(arg1)
       if (!cli) {
         setMessages((previousMessages) => [
@@ -121,7 +126,7 @@ export function useBridgeCallbacks({
 
     window.__onProgress = ((arg1: CliName | string, arg2?: string) => {
       const text = arg2 !== undefined ? arg2 : String(arg1)
-      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
+      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
       if (!cli) return
       setProgressByCli((prev) => ({ ...prev, [cli]: text }))
     }) as typeof window.__onProgress
@@ -159,7 +164,7 @@ export function useBridgeCallbacks({
 
     window.__onError = ((arg1: CliName | string, arg2?: string) => {
       flushBufferedChunks()
-      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCli ?? undefined)
+      const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
       const error = arg2 !== undefined ? arg2 : String(arg1)
       if (cli) {
         setRunningClis((prev) => prev.filter((c) => c !== cli))
@@ -240,7 +245,7 @@ export function useBridgeCallbacks({
       window.__onProjectRefs = (() => {}) as typeof window.__onProjectRefs
       window.__onSession = (() => {}) as typeof window.__onSession
     }
-  }, [activeCli, flushBufferedChunks, msgIdRef, scheduleChunkFlush, setMessages, setProgressByCli, setProjectRefs, setRunningClis])
+  }, [flushBufferedChunks, msgIdRef, scheduleChunkFlush, setMessages, setProgressByCli, setProjectRefs, setRunningClis])
 
   useEffect(() => {
     const requestProjectRefs = () => bridge.getProjectRefs()
