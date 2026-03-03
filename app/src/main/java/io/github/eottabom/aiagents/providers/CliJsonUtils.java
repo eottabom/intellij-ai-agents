@@ -30,7 +30,11 @@ final class CliJsonUtils {
         if (!obj.has(key)) {
             return null;
         }
-        return obj.get(key).getAsString();
+        var value = obj.get(key);
+        if (value == null || value.isJsonNull() || !value.isJsonPrimitive()) {
+            return null;
+        }
+        return value.getAsString();
     }
 
     static String extractGeminiText(JsonElement jsonElement) {
