@@ -32,12 +32,17 @@ export default function ChatPanel({ installedClis }: Props) {
   const msgIdRef = useRef(0)
   const pendingResponseCliRef = useRef<CliName | null>(null)
   const messagesRef = useRef<Message[]>([])
+  const chatModeRef = useRef<ChatMode>(chatMode)
   const pendingSessionsRef = useRef<{ remaining: Set<CliName>; results: Partial<Record<CliName, string>> } | null>(null)
   const isLoading = runningClis.length > 0
 
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
+
+  useEffect(() => {
+    chatModeRef.current = chatMode
+  }, [chatMode])
 
   useEffect(() => {
     if (!activeCli && installedClis.length > 0) {
@@ -101,7 +106,7 @@ export default function ChatPanel({ installedClis }: Props) {
     userVisibleText: string,
     userCli?: CliName,
     promptFactory?: (cli: CliName) => string,
-    mode: ChatMode = chatMode,
+    mode: ChatMode = chatModeRef.current,
   ) => {
     const snapshot = messagesRef.current
     setMessages((prev) => [
@@ -129,7 +134,7 @@ export default function ChatPanel({ installedClis }: Props) {
     const parsed = parseAgentCommand(prompt, activeCli)
     const planCmd = parsePlanCommand(parsed.prompt)
     const sessionCmd = parseSessionCommand(planCmd.prompt)
-    let nextMode = chatMode
+    let nextMode = chatModeRef.current
     if (planCmd.modeChanged) {
       nextMode = planCmd.modeChanged
       setChatMode(planCmd.modeChanged)
@@ -233,6 +238,7 @@ export default function ChatPanel({ installedClis }: Props) {
   const handleTogglePlanMode = () => {
     setChatMode((prev) => {
       const next = prev === 'plan' ? 'normal' : 'plan'
+      chatModeRef.current = next
       setMessages((messages) => [
         ...messages,
         {

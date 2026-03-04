@@ -72,15 +72,22 @@ class ChatCommandHandler {
 			return;
 		}
 
-		var prompt = (chatMode == ChatMode.PLAN)
-				? wrapAsPlan(userPrompt)
-				: userPrompt;
-
 		submitProviderTask(command.providerName(), (provider, requestId) -> {
 			var sessionId = sessionStore.get(command.providerName());
+			var prompt = buildPrompt(chatMode, userPrompt, sessionId);
 			provider.run(prompt, sessionId, workDir,
 					chunk -> onStreamChunk(command.providerName(), requestId, chunk));
 		});
+	}
+
+	private String buildPrompt(ChatMode chatMode, String userPrompt, String sessionId) {
+		if (chatMode == ChatMode.PLAN) {
+			return wrapAsPlan(userPrompt);
+		}
+		if (sessionId != null && !sessionId.isBlank()) {
+			return wrapAsNormal(userPrompt);
+		}
+		return userPrompt;
 	}
 
 	void dispatchDoctor(String providerName, String workDir) {
@@ -282,6 +289,19 @@ class ChatCommandHandler {
 				Plan mode is enabled.
 				Respond with a concrete implementation plan first.
 				Do not claim to have executed changes or commands.
+
+				User request:
+				%s
+				""".formatted(prompt);
+	}
+
+	static String wrapAsNormal(String prompt) {
+		if (prompt == null) {
+			return "";
+		}
+		return """
+				Plan mode is disabled. Execute the request directly.
+				Do not respond with a plan. Provide the actual implementation or answer.
 
 				User request:
 				%s

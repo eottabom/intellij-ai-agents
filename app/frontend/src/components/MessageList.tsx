@@ -77,8 +77,8 @@ function CodeBlock({ code, language }: CodeBlockProps) {
   )
 }
 
-const markdownComponents = {
-  code({ className, children, ...props }: { className?: string; children?: React.ReactNode; [key: string]: unknown }) {
+const markdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
+  code({ className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || '')
     const code = String(children).replace(/\n$/, '')
     return match ? (
@@ -127,13 +127,9 @@ const MessageBubble = memo(function MessageBubble({ msg }: MessageBubbleProps) {
           )}
         </div>
       )}
-      {msg.isStreaming ? (
-        <div className="streaming-content">{displayContent}</div>
-      ) : (
-        <ReactMarkdown components={markdownComponents}>
-          {displayContent}
-        </ReactMarkdown>
-      )}
+      <ReactMarkdown components={markdownComponents}>
+        {displayContent}
+      </ReactMarkdown>
       {msg.isStreaming && <span className="cursor" />}
     </div>
   )
