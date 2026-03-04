@@ -27,6 +27,15 @@ final class CliProcessRunner {
 	private CliProcessRunner() {
 	}
 
+	private static Consumer<StreamChunk> serialized(Consumer<StreamChunk> onChunk) {
+		var lock = new Object();
+		return chunk -> {
+			synchronized (lock) {
+				onChunk.accept(chunk);
+			}
+		};
+	}
+
 	static void runSubcommand(
 			AiProvider provider,
 			String subcommand,
@@ -46,9 +55,10 @@ final class CliProcessRunner {
 			return;
 		}
 
+		var safeChunk = serialized(onChunk);
 		var state = new RunState();
 		var stderrThread = drainStderr(provider, process, state);
-		var watchdogThread = startWatchdog(provider, process, state, onChunk);
+		var watchdogThread = startWatchdog(provider, process, state, safeChunk);
 		var cancelThread = watchForCancellation(provider, process, state);
 
 		var outputBuf = new StringBuilder();
@@ -86,7 +96,11 @@ final class CliProcessRunner {
 		cancelThread.interrupt();
 		joinQuietly(cancelThread);
 
-		if (state.timedOut.get() || state.cancelled.get()) {
+		if (state.timedOut.get()) {
+			return;
+		}
+		if (state.cancelled.get()) {
+			safeChunk.accept(StreamChunk.done(null));
 			return;
 		}
 
@@ -95,21 +109,21 @@ final class CliProcessRunner {
 
 		if (exitCode != 0) {
 			if (!stderr.isBlank()) {
-				onChunk.accept(StreamChunk.error(stderr));
+				safeChunk.accept(StreamChunk.error(stderr));
 			} else {
-				onChunk.accept(StreamChunk.error(
+				safeChunk.accept(StreamChunk.error(
 						provider.cliName + " " + subcommand + " exited with code " + exitCode));
 			}
 			return;
 		}
 
 		if (!output.isBlank()) {
-			onChunk.accept(StreamChunk.text(output));
+			safeChunk.accept(StreamChunk.text(output));
 		} else if (!stderr.isBlank()) {
-			onChunk.accept(StreamChunk.text(stderr));
+			safeChunk.accept(StreamChunk.text(stderr));
 		}
 
-		onChunk.accept(StreamChunk.done(null));
+		safeChunk.accept(StreamChunk.done(null));
 	}
 
 	static void run(
@@ -133,12 +147,13 @@ final class CliProcessRunner {
 			return;
 		}
 
+		var safeChunk = serialized(onChunk);
 		var state = new RunState();
 		var stderrThread = drainStderr(provider, process, state);
-		var watchdogThread = startWatchdog(provider, process, state, onChunk);
+		var watchdogThread = startWatchdog(provider, process, state, safeChunk);
 		var cancelThread = watchForCancellation(provider, process, state);
 
-		var lastSessionId = readStdout(provider, process, state, onChunk);
+		var lastSessionId = readStdout(provider, process, state, safeChunk);
 
 		var exitCode = awaitExit(process, stderrThread);
 		watchdogThread.interrupt();
@@ -146,9 +161,14 @@ final class CliProcessRunner {
 		cancelThread.interrupt();
 		joinQuietly(cancelThread);
 
-		if (!state.timedOut.get() && !state.cancelled.get()) {
-			finalizeRun(provider, exitCode, lastSessionId, state, onChunk);
+		if (state.timedOut.get()) {
+			return;
 		}
+		if (state.cancelled.get()) {
+			safeChunk.accept(StreamChunk.done(lastSessionId));
+			return;
+		}
+		finalizeRun(provider, exitCode, lastSessionId, state, safeChunk);
 	}
 
 	private static Process createProcess(AiProvider provider, List<String> argv, String workDir) {

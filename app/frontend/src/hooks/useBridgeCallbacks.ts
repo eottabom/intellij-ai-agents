@@ -42,7 +42,7 @@ export function useBridgeCallbacks({
   appendAssistant,
 }: UseBridgeCallbacksParams) {
   const activeCliRef = useRef<CliName | null>(activeCli)
-  const installedClisRef = useRef<CliName[]>([])
+  const installedClisRef = useRef<CliName[]>(installedClis)
 	const appendAssistantRef = useRef(appendAssistant)
 	const chunkBufferRef = useRef<Partial<Record<CliName, string>>>({})
 	const chunkFlushTimerRef = useRef<number | null>(null)

@@ -108,6 +108,7 @@ sourceSets.main {
     resources.srcDir(layout.buildDirectory.dir("generated/webview-resources"))
 }
 
+// mustRunAfter (not dependsOn): test 실행 시 npm 불필요. buildPlugin/runIde가 copyWebview를 보장.
 tasks.named("processResources") { mustRunAfter("copyWebview") }
 
 tasks.test {

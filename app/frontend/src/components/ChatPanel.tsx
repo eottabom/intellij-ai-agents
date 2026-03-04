@@ -122,10 +122,23 @@ export default function ChatPanel({ installedClis }: Props) {
     setProgressByCli(Object.fromEntries(targetClis.map((cli) => [cli, 'working...'])) as Partial<Record<CliName, string>>)
     pendingResponseCliRef.current = targetClis[0] ?? null
 
+    const failedClis: CliName[] = []
     targetClis.forEach((cli) => {
-      const finalPrompt = promptFactory ? promptFactory(cli) : composePromptWithContext(userVisibleText, snapshot)
-      bridge.chat(cli, finalPrompt, mode)
+      try {
+        const finalPrompt = promptFactory ? promptFactory(cli) : composePromptWithContext(userVisibleText, snapshot)
+        bridge.chat(cli, finalPrompt, mode)
+      } catch {
+        failedClis.push(cli)
+      }
     })
+    if (failedClis.length > 0) {
+      setRunningClis((prev) => prev.filter((c) => !failedClis.includes(c)))
+      setProgressByCli((prev) => {
+        const next = { ...prev }
+        failedClis.forEach((c) => delete next[c])
+        return next
+      })
+    }
   }
 
   const handleSend = (prompt: string) => {
