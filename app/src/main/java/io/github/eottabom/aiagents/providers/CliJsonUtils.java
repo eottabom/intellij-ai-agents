@@ -79,7 +79,7 @@ final class CliJsonUtils {
 	}
 
 	private static String extractObjectText(JsonObject obj) {
-		if (obj.has("text") && obj.get("text").isJsonPrimitive()) {
+		if (obj.has("text") && obj.get("text").isJsonPrimitive() && obj.get("text").getAsJsonPrimitive().isString()) {
 			return obj.get("text").getAsString();
 		}
 

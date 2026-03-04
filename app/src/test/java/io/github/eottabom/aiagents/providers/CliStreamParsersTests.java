@@ -6,7 +6,7 @@ import org.junit.jupiter.api.parallel.Resources;
 
 import java.util.Locale;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class CliStreamParsersTests {
 
@@ -20,9 +20,9 @@ class CliStreamParsersTests {
 			var line = "{\"type\":\"INIT\",\"session_id\":\"session-123\"}";
 			var chunk = CliStreamParsers.parseGeminiLine(line);
 
-			assertNotNull(chunk);
-			assertEquals(ChunkType.DONE, chunk.type());
-			assertEquals("session-123", chunk.sessionId());
+			assertThat(chunk).isNotNull();
+			assertThat(chunk.type()).isEqualTo(ChunkType.DONE);
+			assertThat(chunk.sessionId()).isEqualTo("session-123");
 		} finally {
 			Locale.setDefault(previousLocale);
 		}
@@ -36,7 +36,7 @@ class CliStreamParsersTests {
 
 		var chunk = CliStreamParsers.parseGeminiLine(line);
 
-		assertNull(chunk);
+		assertThat(chunk).isNull();
 	}
 
 	@Test
@@ -47,8 +47,8 @@ class CliStreamParsersTests {
 
 		var chunk = CliStreamParsers.parseCodexLine(line);
 
-		assertNotNull(chunk);
-		assertEquals(ChunkType.TEXT, chunk.type());
-		assertEquals("build ok", chunk.content());
+		assertThat(chunk).isNotNull();
+		assertThat(chunk.type()).isEqualTo(ChunkType.TEXT);
+		assertThat(chunk.content()).isEqualTo("build ok");
 	}
 }

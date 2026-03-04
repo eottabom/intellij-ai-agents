@@ -302,4 +302,19 @@ export function useBridgeCallbacks({
       window.removeEventListener('bridgeReady', requestProjectRefs)
     }
   }, [])
+
+  const clearBuffers = useCallback(() => {
+    chunkBufferRef.current = {}
+    progressBufferRef.current = {}
+    if (chunkFlushTimerRef.current !== null) {
+      window.clearTimeout(chunkFlushTimerRef.current)
+      chunkFlushTimerRef.current = null
+    }
+    if (progressFlushTimerRef.current !== null) {
+      window.clearTimeout(progressFlushTimerRef.current)
+      progressFlushTimerRef.current = null
+    }
+  }, [])
+
+  return { clearBuffers }
 }

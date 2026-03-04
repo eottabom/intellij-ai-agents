@@ -2,7 +2,7 @@ package io.github.eottabom.aiagents.settings;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class AiAgentSettingsDefaultsTests {
 
@@ -10,19 +10,18 @@ class AiAgentSettingsDefaultsTests {
 	void dangerousFlagsAreDisabledByDefault() {
 		var state = new AiAgentSettings.State();
 
-		assertFalse(state.skipPermissions, "skipPermissions must default to false");
-		assertFalse(state.bypassApprovals, "bypassApprovals must default to false");
-		assertFalse(state.geminiYoloMode, "geminiYoloMode must default to false");
+		assertThat(state.skipPermissions).as("skipPermissions").isFalse();
+		assertThat(state.bypassApprovals).as("bypassApprovals").isFalse();
+		assertThat(state.geminiYoloMode).as("geminiYoloMode").isFalse();
 	}
 
 	@Test
 	void scanDepthDefaultIsWithinBounds() {
 		var settings = new AiAgentSettings();
 
-		var depth = settings.getProjectRefsScanDepth();
-
-		assertTrue(depth > 0, "scan depth must be positive");
-		assertTrue(depth <= 20, "scan depth must not exceed 20");
+		assertThat(settings.getProjectRefsScanDepth())
+				.isGreaterThan(0)
+				.isLessThanOrEqualTo(20);
 	}
 
 	@Test
@@ -30,9 +29,7 @@ class AiAgentSettingsDefaultsTests {
 		var settings = new AiAgentSettings();
 		settings.setProjectRefsScanDepth(100);
 
-		var depth = settings.getProjectRefsScanDepth();
-
-		assertTrue(depth <= 20, "scan depth must be clamped to 20 max");
+		assertThat(settings.getProjectRefsScanDepth()).isLessThanOrEqualTo(20);
 	}
 
 	@Test
@@ -43,12 +40,12 @@ class AiAgentSettingsDefaultsTests {
 		corruptedState.projectRefsScanDepth = 0;
 		settings.loadState(corruptedState);
 
-		assertEquals(6, settings.getProjectRefsScanDepth(), "zero should fall back to default 6");
+		assertThat(settings.getProjectRefsScanDepth()).as("zero fallback").isEqualTo(6);
 
 		corruptedState.projectRefsScanDepth = -5;
 		settings.loadState(corruptedState);
 
-		assertEquals(6, settings.getProjectRefsScanDepth(), "negative should fall back to default 6");
+		assertThat(settings.getProjectRefsScanDepth()).as("negative fallback").isEqualTo(6);
 	}
 
 	@Test
@@ -61,22 +58,24 @@ class AiAgentSettingsDefaultsTests {
 		corruptedState.codexTimeoutSec = 0;
 		settings.loadState(corruptedState);
 
-		assertEquals(180, settings.getClaudeTimeoutSec(), "claude timeout should fall back to 180");
-		assertEquals(60, settings.getGeminiTimeoutSec(), "gemini timeout should fall back to 60");
-		assertEquals(30, settings.getCodexTimeoutSec(), "codex timeout should fall back to 30");
+		assertThat(settings.getClaudeTimeoutSec()).as("claude fallback").isEqualTo(180);
+		assertThat(settings.getGeminiTimeoutSec()).as("gemini fallback").isEqualTo(60);
+		assertThat(settings.getCodexTimeoutSec()).as("codex fallback").isEqualTo(30);
 	}
 
 	@Test
-	void timeoutGettersClampSmallPositiveValues() {
+	void timeoutGettersClampLoadedSmallPositiveValues() {
 		var settings = new AiAgentSettings();
 
-		settings.setClaudeTimeoutSec(5);
-		settings.setGeminiTimeoutSec(1);
-		settings.setCodexTimeoutSec(9);
+		var corruptedState = new AiAgentSettings.State();
+		corruptedState.claudeTimeoutSec = 5;
+		corruptedState.geminiTimeoutSec = 1;
+		corruptedState.codexTimeoutSec = 9;
+		settings.loadState(corruptedState);
 
-		assertTrue(settings.getClaudeTimeoutSec() >= 10, "claude timeout should be clamped to at least 10");
-		assertTrue(settings.getGeminiTimeoutSec() >= 10, "gemini timeout should be clamped to at least 10");
-		assertTrue(settings.getCodexTimeoutSec() >= 10, "codex timeout should be clamped to at least 10");
+		assertThat(settings.getClaudeTimeoutSec()).as("claude clamp").isEqualTo(10);
+		assertThat(settings.getGeminiTimeoutSec()).as("gemini clamp").isEqualTo(10);
+		assertThat(settings.getCodexTimeoutSec()).as("codex clamp").isEqualTo(10);
 	}
 
 	@Test
@@ -87,8 +86,8 @@ class AiAgentSettingsDefaultsTests {
 		settings.setGeminiTimeoutSec(-5);
 		settings.setCodexTimeoutSec(0);
 
-		assertTrue(settings.getClaudeTimeoutSec() >= 10, "claude timeout min is 10");
-		assertTrue(settings.getGeminiTimeoutSec() >= 10, "gemini timeout min is 10");
-		assertTrue(settings.getCodexTimeoutSec() >= 10, "codex timeout min is 10");
+		assertThat(settings.getClaudeTimeoutSec()).as("claude min").isGreaterThanOrEqualTo(10);
+		assertThat(settings.getGeminiTimeoutSec()).as("gemini min").isGreaterThanOrEqualTo(10);
+		assertThat(settings.getCodexTimeoutSec()).as("codex min").isGreaterThanOrEqualTo(10);
 	}
 }

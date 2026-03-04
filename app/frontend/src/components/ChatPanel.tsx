@@ -57,7 +57,7 @@ export default function ChatPanel({ installedClis }: Props) {
     setMessages((prev) => [...prev, { id: ++msgIdRef.current, role: 'assistant', content, cli, variant }])
   }
 
-  useBridgeCallbacks({
+  const { clearBuffers } = useBridgeCallbacks({
     activeCli,
     installedClis,
     msgIdRef,
@@ -224,6 +224,7 @@ export default function ChatPanel({ installedClis }: Props) {
   }
 
   const handleCancel = () => {
+    clearBuffers()
     runningClis.forEach((cli) => {
       bridge.cancel(cli)
     })

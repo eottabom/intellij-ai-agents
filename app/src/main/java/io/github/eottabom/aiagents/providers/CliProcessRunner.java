@@ -58,6 +58,7 @@ final class CliProcessRunner {
 			while ((line = reader.readLine()) != null) {
 				state.lastOutputAt.set(System.currentTimeMillis());
 				if (Thread.currentThread().isInterrupted()) {
+					state.cancelled.set(true);
 					terminateProcess(process);
 					break;
 				}
@@ -272,6 +273,7 @@ final class CliProcessRunner {
 				}
 				state.lastOutputAt.set(System.currentTimeMillis());
 				if (Thread.currentThread().isInterrupted()) {
+					state.cancelled.set(true);
 					terminateProcess(process);
 					return null;
 				}
