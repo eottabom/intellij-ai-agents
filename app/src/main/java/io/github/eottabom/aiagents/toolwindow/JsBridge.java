@@ -43,6 +43,7 @@ class JsBridge implements Disposable {
 	private final AtomicReference<String> projectRefsCache = new AtomicReference<>();
 	private final AtomicLong projectRefsVersion = new AtomicLong(0);
 	private final AtomicBoolean projectRefsScanInProgress = new AtomicBoolean(false);
+	private final AtomicBoolean disposed = new AtomicBoolean(false);
 	private final AtomicReference<ScheduledFuture<?>> pendingInvalidation = new AtomicReference<>();
 	private final JBCefJSQuery jsQuery;
 	private final ChatCommandHandler commandHandler;
@@ -164,7 +165,11 @@ class JsBridge implements Disposable {
 		var startedVersion = projectRefsVersion.get();
 		try {
 			var projectRefsJson = ProjectRefsCollector.collect(project);
+			if (disposed.get()) {
+				return;
+			}
 			if (projectRefsJson == null || projectRefsJson.isBlank()) {
+				notifier.sendProjectRefs("[]");
 				return;
 			}
 			if (startedVersion != projectRefsVersion.get()) {
@@ -179,6 +184,13 @@ class JsBridge implements Disposable {
 
 	@Override
 	public void dispose() {
+		disposed.set(true);
+		var pending = pendingInvalidation.getAndSet(null);
+		if (pending != null) {
+			pending.cancel(false);
+		}
+		runningTasks.values().forEach(task -> task.cancel(true));
+		runningTasks.clear();
 		scheduler.shutdownNow();
 		executor.shutdownNow();
 		jsQuery.dispose();

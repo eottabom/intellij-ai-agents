@@ -199,7 +199,9 @@ export function useBridgeCallbacks({
           )),
         )
       }
-      pendingResponseCliRef.current = null
+      if (!cliArg || pendingResponseCliRef.current === cliArg) {
+        pendingResponseCliRef.current = null
+      }
     }) as typeof window.__onDone
 
 	window.__onError = ((arg1: CliName | string, arg2?: string) => {
@@ -252,7 +254,9 @@ export function useBridgeCallbacks({
           content: `⚠️ Error: ${error}`,
         },
       ])
-      pendingResponseCliRef.current = null
+      if (!cli || pendingResponseCliRef.current === cli) {
+        pendingResponseCliRef.current = null
+      }
     }) as typeof window.__onError
 
     window.__onProjectRefs = ((refs: ProjectRef[]) => {
