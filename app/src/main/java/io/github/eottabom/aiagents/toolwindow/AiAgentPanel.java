@@ -137,6 +137,7 @@ public class AiAgentPanel implements Disposable {
 			Files.writeString(root.resolve("index.html"), html, StandardCharsets.UTF_8);
 			return root.resolve("index.html").toUri().toURL();
 		} catch (IOException ex) {
+			logger.warn("Failed to extract webview to temp dir", ex);
 			return null;
 		}
 	}
@@ -166,6 +167,7 @@ public class AiAgentPanel implements Disposable {
 			}
 			return resourceInputStream.readAllBytes();
 		} catch (IOException ex) {
+			logger.debug("Failed to read resource: {}", path, ex);
 			return null;
 		}
 	}

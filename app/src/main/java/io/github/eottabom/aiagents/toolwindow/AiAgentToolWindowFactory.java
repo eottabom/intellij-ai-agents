@@ -49,9 +49,8 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
 
 	private List<String> detectInstalledProviders() {
 		List<String> installed = new ArrayList<>();
-		String whichCmd = OsUtils.isWindows() ? "where" : "which";
 		for (String provider : ALL_PROVIDERS) {
-			if (isCliInstalled(whichCmd, provider)) {
+			if (isCliInstalled(provider)) {
 				installed.add(provider);
 			}
 		}
@@ -62,21 +61,27 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
 		return installed;
 	}
 
-	private boolean isCliInstalled(String whichCmd, String cliName) {
+	private boolean isCliInstalled(String cliName) {
 		try {
-			var process = new ProcessBuilder(whichCmd, cliName)
+			List<String> command;
+			if (OsUtils.isWindows()) {
+				command = List.of("where", cliName);
+			} else {
+				command = List.of("/bin/bash", "-l", "-c", "command -v '" + cliName.replace("'", "'\"'\"'") + "'");
+			}
+			var process = new ProcessBuilder(command)
 					.redirectErrorStream(true)
 					.start();
+			try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+				while (reader.readLine() != null) {
+					// consume
+				}
+			}
 			var processFinished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
 			if (!processFinished) {
 				process.destroyForcibly();
 				process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS);
 				return false;
-			}
-			try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-				while (reader.readLine() != null) {
-					// consume
-				}
 			}
 			return process.exitValue() == 0;
 		} catch (InterruptedException exception) {

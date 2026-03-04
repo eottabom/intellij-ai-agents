@@ -136,49 +136,59 @@ class ChatCommandHandler {
 
 	private boolean isCurrentRequestIdForProvider(String providerName, long requestId) {
 		synchronized (runningTasks) {
-			var currentRequestId = runningTaskRequestIds.get(providerName);
-			return currentRequestId != null && currentRequestId == requestId;
+			return isCurrentRequestIdForProviderLocked(providerName, requestId);
 		}
+	}
+
+	private boolean isCurrentRequestIdForProviderLocked(String providerName, long requestId) {
+		var currentRequestId = runningTaskRequestIds.get(providerName);
+		return currentRequestId != null && currentRequestId == requestId;
 	}
 
 	private boolean completeTaskIfCurrent(String providerName, long requestId) {
 		synchronized (runningTasks) {
-			var currentRequestId = runningTaskRequestIds.get(providerName);
-			if (currentRequestId == null || currentRequestId != requestId) {
-				return false;
-			}
-			runningTaskRequestIds.remove(providerName);
-			runningTasks.remove(providerName);
-			return true;
+			return completeTaskIfCurrentLocked(providerName, requestId);
 		}
 	}
 
-	void onStreamChunk(String providerName, long requestId, StreamChunk chunk) {
-		if (!isCurrentRequestIdForProvider(providerName, requestId)) {
-			return;
+	private boolean completeTaskIfCurrentLocked(String providerName, long requestId) {
+		var currentRequestId = runningTaskRequestIds.get(providerName);
+		if (currentRequestId == null || currentRequestId != requestId) {
+			return false;
 		}
-		switch (chunk.type()) {
-			case TEXT -> notifier.sendChunk(providerName, chunk.content());
-			case TOOL_USE -> {
-				var progressMessage = "\uD83D\uDD27 " + chunk.toolName();
-				var previousProgressMessage = lastProgressByProvider.put(providerName, progressMessage);
-				if (!progressMessage.equals(previousProgressMessage)) {
-					notifier.sendProgress(providerName, progressMessage);
-				}
+		runningTaskRequestIds.remove(providerName);
+		runningTasks.remove(providerName);
+		return true;
+	}
+
+	void onStreamChunk(String providerName, long requestId, StreamChunk chunk) {
+		synchronized (runningTasks) {
+			if (!isCurrentRequestIdForProviderLocked(providerName, requestId)) {
+				return;
 			}
-			case DONE -> {
-				if (chunk.sessionId() != null) {
-					sessionStore.save(providerName, chunk.sessionId());
+			switch (chunk.type()) {
+				case TEXT -> notifier.sendChunk(providerName, chunk.content());
+				case TOOL_USE -> {
+					var progressMessage = "\uD83D\uDD27 " + chunk.toolName();
+					var previousProgressMessage = lastProgressByProvider.put(providerName, progressMessage);
+					if (!progressMessage.equals(previousProgressMessage)) {
+						notifier.sendProgress(providerName, progressMessage);
+					}
 				}
-				if (completeTaskIfCurrent(providerName, requestId)) {
-					lastProgressByProvider.remove(providerName);
-					notifier.sendDone(providerName);
+				case DONE -> {
+					if (chunk.sessionId() != null) {
+						sessionStore.save(providerName, chunk.sessionId());
+					}
+					if (completeTaskIfCurrentLocked(providerName, requestId)) {
+						lastProgressByProvider.remove(providerName);
+						notifier.sendDone(providerName);
+					}
 				}
-			}
-			case ERROR -> {
-				if (completeTaskIfCurrent(providerName, requestId)) {
-					lastProgressByProvider.remove(providerName);
-					notifier.sendError(providerName, chunk.content());
+				case ERROR -> {
+					if (completeTaskIfCurrentLocked(providerName, requestId)) {
+						lastProgressByProvider.remove(providerName);
+						notifier.sendError(providerName, chunk.content());
+					}
 				}
 			}
 		}

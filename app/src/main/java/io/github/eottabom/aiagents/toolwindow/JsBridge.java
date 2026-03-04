@@ -64,7 +64,17 @@ class JsBridge implements Disposable {
 		connection.subscribe(VirtualFileManager.VFS_CHANGES, new BulkFileListener() {
 			@Override
 			public void after(@NotNull List<? extends VFileEvent> events) {
-				invalidateProjectRefsCacheDebounced();
+				var basePath = project.getBasePath();
+				if (basePath == null) {
+					return;
+				}
+				for (var event : events) {
+					var file = event.getFile();
+					if (file != null && file.getPath().startsWith(basePath)) {
+						invalidateProjectRefsCacheDebounced();
+						return;
+					}
+				}
 			}
 		});
 	}
