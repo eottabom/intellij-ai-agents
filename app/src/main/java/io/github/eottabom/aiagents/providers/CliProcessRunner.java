@@ -193,7 +193,11 @@ final class CliProcessRunner {
 					}
 				}
 			} catch (Exception ex) {
-				logger.warn("Error reading stderr for {}: {}", provider.cliName, ex.getMessage());
+				if (state.timedOut.get() || state.cancelled.get()) {
+					logger.debug("Stderr stream closed (cancelled/timed out) for {}: {}", provider.cliName, ex.getMessage());
+				} else {
+					logger.warn("Error reading stderr for {}: {}", provider.cliName, ex.getMessage());
+				}
 			}
 		}, provider.cliName + "-stderr");
 		thread.setDaemon(true);

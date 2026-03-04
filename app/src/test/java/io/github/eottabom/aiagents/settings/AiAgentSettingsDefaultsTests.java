@@ -67,6 +67,19 @@ class AiAgentSettingsDefaultsTests {
 	}
 
 	@Test
+	void timeoutGettersClampSmallPositiveValues() {
+		var settings = new AiAgentSettings();
+
+		settings.setClaudeTimeoutSec(5);
+		settings.setGeminiTimeoutSec(1);
+		settings.setCodexTimeoutSec(9);
+
+		assertTrue(settings.getClaudeTimeoutSec() >= 10, "claude timeout should be clamped to at least 10");
+		assertTrue(settings.getGeminiTimeoutSec() >= 10, "gemini timeout should be clamped to at least 10");
+		assertTrue(settings.getCodexTimeoutSec() >= 10, "codex timeout should be clamped to at least 10");
+	}
+
+	@Test
 	void timeoutSettersEnforceMinimum() {
 		var settings = new AiAgentSettings();
 

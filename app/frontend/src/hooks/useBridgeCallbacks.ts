@@ -3,6 +3,16 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import { CliName, ProjectRef, bridge } from '../bridge'
 import type { Message } from '../components/ChatPanel'
 
+function findLastStreamingIndex(messages: Message[], cli?: CliName): number | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.isStreaming && (cli === undefined || m.cli === cli)) {
+      return i
+    }
+  }
+  return undefined
+}
+
 interface UseBridgeCallbacksParams {
   activeCli: CliName | null
   installedClis: CliName[]
@@ -53,14 +63,7 @@ export function useBridgeCallbacks({
     setMessages((previousMessages) => {
       let nextMessages = previousMessages
       for (const [cli, text] of bufferedEntries) {
-        const targetMessageIndex = [...nextMessages]
-          .map((message, messageIndex) => ({ message, messageIndex }))
-          .reverse()
-          .find(({ message }) => (
-            message.role === 'assistant'
-            && message.isStreaming
-            && message.cli === cli
-          ))?.messageIndex
+        const targetMessageIndex = findLastStreamingIndex(nextMessages, cli)
 
         if (targetMessageIndex !== undefined) {
           const targetMessage = nextMessages[targetMessageIndex]
@@ -180,8 +183,7 @@ export function useBridgeCallbacks({
           return next
         })
         setMessages((prev) => {
-          const idx = [...prev].map((m, i) => ({ m, i })).reverse()
-            .find(({ m }) => m.isStreaming && m.cli === cliArg)?.i
+          const idx = findLastStreamingIndex(prev, cliArg)
           if (idx === undefined) return prev
           const next = [...prev]
           next[idx] = { ...next[idx], isStreaming: false }
@@ -218,10 +220,7 @@ export function useBridgeCallbacks({
           return next
         })
         setMessages((previousMessages) => {
-          const streamingMessageIndex = [...previousMessages]
-            .map((message, messageIndex) => ({ message, messageIndex }))
-            .reverse()
-            .find(({ message }) => message.isStreaming && message.cli === cli)?.messageIndex
+          const streamingMessageIndex = findLastStreamingIndex(previousMessages, cli)
           if (streamingMessageIndex === undefined) {
             return previousMessages
           }

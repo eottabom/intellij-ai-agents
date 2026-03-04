@@ -87,7 +87,7 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 
 	public Set<String> getExtraIgnoredDirs() {
 		Set<String> dirs = new LinkedHashSet<>();
-		for (String token : getExtraIgnoredDirsRaw().split("[,\\n\\r\\t ]+")) {
+		for (String token : getExtraIgnoredDirsRaw().split("[,\\n\\r\\t]+")) {
 			String normalized = DirPathNormalizer.normalize(token);
 			if (normalized != null) {
 				dirs.add(normalized);
