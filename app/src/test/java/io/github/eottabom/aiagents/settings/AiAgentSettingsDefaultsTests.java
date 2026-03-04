@@ -29,7 +29,7 @@ class AiAgentSettingsDefaultsTests {
 		var settings = new AiAgentSettings();
 		settings.setProjectRefsScanDepth(100);
 
-		assertThat(settings.getProjectRefsScanDepth()).isLessThanOrEqualTo(20);
+		assertThat(settings.getProjectRefsScanDepth()).isEqualTo(20);
 	}
 
 	@Test
@@ -86,8 +86,8 @@ class AiAgentSettingsDefaultsTests {
 		settings.setGeminiTimeoutSec(-5);
 		settings.setCodexTimeoutSec(0);
 
-		assertThat(settings.getClaudeTimeoutSec()).as("claude min").isGreaterThanOrEqualTo(10);
-		assertThat(settings.getGeminiTimeoutSec()).as("gemini min").isGreaterThanOrEqualTo(10);
-		assertThat(settings.getCodexTimeoutSec()).as("codex min").isGreaterThanOrEqualTo(10);
+		assertThat(settings.getClaudeTimeoutSec()).as("claude min").isEqualTo(10);
+		assertThat(settings.getGeminiTimeoutSec()).as("gemini min").isEqualTo(10);
+		assertThat(settings.getCodexTimeoutSec()).as("codex min").isEqualTo(10);
 	}
 }

@@ -91,6 +91,11 @@ tasks.register<Exec>("buildWebview") {
     dependsOn("installWebviewDeps")
     workingDir("frontend")
     commandLine(npmCmd, "run", "build")
+    inputs.dir("frontend/src")
+    inputs.file("frontend/index.html")
+    inputs.file("frontend/vite.config.ts")
+    inputs.file("frontend/tsconfig.json")
+    outputs.dir("frontend/dist")
 }
 
 tasks.register<Sync>("copyWebview") {

@@ -292,6 +292,11 @@ html, body, #root {
   border-color: rgba(255,255,255,0.2);
 }
 
+.code-copy-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .code-copy-btn.copied {
   color: #d8ffe6;
   border-color: rgba(35,196,142,0.45);
@@ -453,6 +458,11 @@ html, body, #root {
   border-color: rgba(77,157,255,0.22);
 }
 
+.mention-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .mention-item-icon {
   width: 18px;
   height: 18px;
@@ -530,6 +540,11 @@ html, body, #root {
 
 .btn.cancel:hover { background: #6e2323; }
 
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* 빈 상태 */
 .empty-state {
   display: flex;
@@ -550,6 +565,10 @@ html, body, #root {
 }
 
 /* 스크롤바 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
