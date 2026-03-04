@@ -454,7 +454,11 @@ final class CliProcessRunner {
 			}
 			shellCommand.append('\'').append(argv.get(argumentIndex).replace("'", "'\"'\"'")).append('\'');
 		}
-		return List.of("/bin/bash", "-l", "-c", shellCommand.toString());
+		var bash = new File("/bin/bash");
+		if (bash.canExecute()) {
+			return List.of(bash.getAbsolutePath(), "-l", "-c", shellCommand.toString());
+		}
+		return List.of("/bin/sh", "-c", shellCommand.toString());
 	}
 
 	private static boolean isNoiseLine(String line) {
