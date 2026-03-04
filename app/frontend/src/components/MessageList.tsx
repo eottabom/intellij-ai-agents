@@ -176,6 +176,9 @@ export default function MessageList({ messages }: Props) {
 				bottomRef.current?.scrollIntoView({ behavior: 'auto' })
 				streamingScrollTimerRef.current = null
 			}, waitMs)
+		} else if (streamingScrollTimerRef.current !== null) {
+			window.clearTimeout(streamingScrollTimerRef.current)
+			streamingScrollTimerRef.current = null
 		}
 	}, [messages])
 

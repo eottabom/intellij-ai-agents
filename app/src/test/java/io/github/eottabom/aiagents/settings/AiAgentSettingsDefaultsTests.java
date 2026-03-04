@@ -19,9 +19,7 @@ class AiAgentSettingsDefaultsTests {
 	void scanDepthDefaultIsWithinBounds() {
 		var settings = new AiAgentSettings();
 
-		assertThat(settings.getProjectRefsScanDepth())
-				.isGreaterThan(0)
-				.isLessThanOrEqualTo(20);
+		assertThat(settings.getProjectRefsScanDepth()).isEqualTo(6);
 	}
 
 	@Test
