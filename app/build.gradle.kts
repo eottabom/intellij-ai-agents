@@ -91,6 +91,7 @@ tasks.register<Exec>("buildWebview") {
     dependsOn("installWebviewDeps")
     workingDir("frontend")
     commandLine(npmCmd, "run", "build")
+    inputs.files("frontend/package.json", "frontend/package-lock.json")
     inputs.dir("frontend/src")
     inputs.file("frontend/index.html")
     inputs.file("frontend/vite.config.ts")

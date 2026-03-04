@@ -25,7 +25,10 @@ class AiAgentSettingsDefaultsTests {
 	@Test
 	void scanDepthGetterClampsExcessiveValue() {
 		var settings = new AiAgentSettings();
-		settings.setProjectRefsScanDepth(100);
+
+		var corruptedState = new AiAgentSettings.State();
+		corruptedState.projectRefsScanDepth = 100;
+		settings.loadState(corruptedState);
 
 		assertThat(settings.getProjectRefsScanDepth()).isEqualTo(20);
 	}

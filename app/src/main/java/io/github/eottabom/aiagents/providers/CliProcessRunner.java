@@ -83,7 +83,8 @@ final class CliProcessRunner {
 					if (!outputBuf.isEmpty()) {
 						outputBuf.append('\n');
 					}
-					outputBuf.append(trimmed);
+					var remaining = SUBCOMMAND_OUTPUT_BUFFER_LIMIT - outputBuf.length();
+					outputBuf.append(trimmed, 0, Math.min(trimmed.length(), remaining));
 				}
 			}
 		} catch (Exception ex) {
@@ -210,7 +211,12 @@ final class CliProcessRunner {
 					}
 					state.lastOutputAt.set(System.currentTimeMillis());
 					if (state.stderrBuf.length() < STDERR_BUFFER_LIMIT) {
-						state.stderrBuf.append(line).append('\n');
+						var remaining = STDERR_BUFFER_LIMIT - state.stderrBuf.length();
+						if (line.length() + 1 <= remaining) {
+							state.stderrBuf.append(line).append('\n');
+						} else {
+							state.stderrBuf.append(line, 0, Math.min(line.length(), remaining));
+						}
 					}
 				}
 			} catch (Exception ex) {
@@ -312,7 +318,12 @@ final class CliProcessRunner {
 						continue;
 					}
 					if (plainTextBuf.length() < PLAINTEXT_BUFFER_LIMIT) {
-						plainTextBuf.append(trimmed).append('\n');
+						var remaining = PLAINTEXT_BUFFER_LIMIT - plainTextBuf.length();
+						if (trimmed.length() + 1 <= remaining) {
+							plainTextBuf.append(trimmed).append('\n');
+						} else {
+							plainTextBuf.append(trimmed, 0, Math.min(trimmed.length(), remaining));
+						}
 					}
 					continue;
 				}

@@ -138,6 +138,10 @@ export default function ChatPanel({ installedClis }: Props) {
         failedClis.forEach((c) => delete next[c])
         return next
       })
+      if (pendingResponseCliRef.current && failedClis.includes(pendingResponseCliRef.current)) {
+        const remaining = targetClis.filter((c) => !failedClis.includes(c))
+        pendingResponseCliRef.current = remaining[0] ?? null
+      }
     }
   }
 
