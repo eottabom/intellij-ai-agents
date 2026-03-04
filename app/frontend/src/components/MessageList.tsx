@@ -32,12 +32,27 @@ interface CodeBlockProps {
 
 function CodeBlock({ code, language }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
+  const timerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current)
+      }
+    }
+  }, [])
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code)
       setCopied(true)
-      window.setTimeout(() => setCopied(false), 1200)
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current)
+      }
+      timerRef.current = window.setTimeout(() => {
+        setCopied(false)
+        timerRef.current = null
+      }, 1200)
     } catch {
       setCopied(false)
     }

@@ -34,6 +34,9 @@ final class CliJsonUtils {
 		if (value == null || value.isJsonNull() || !value.isJsonPrimitive()) {
 			return null;
 		}
+		if (!value.getAsJsonPrimitive().isString()) {
+			return null;
+		}
 		return value.getAsString();
 	}
 

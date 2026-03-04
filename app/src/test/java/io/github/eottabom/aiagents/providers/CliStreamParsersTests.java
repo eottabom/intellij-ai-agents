@@ -1,6 +1,8 @@
 package io.github.eottabom.aiagents.providers;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 import java.util.Locale;
 
@@ -9,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CliStreamParsersTests {
 
 	@Test
+	@ResourceLock(Resources.LOCALE)
 	void parseGeminiLineParsesInitEventUnderTurkishLocale() {
 		var previousLocale = Locale.getDefault();
 		try {

@@ -8,6 +8,6 @@ public final class OsUtils {
 	}
 
 	public static boolean isWindows() {
-		return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+		return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).startsWith("windows");
 	}
 }
