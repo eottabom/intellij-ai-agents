@@ -79,8 +79,9 @@ final class CliJsonUtils {
 	}
 
 	private static String extractObjectText(JsonObject obj) {
-		if (obj.has("text") && obj.get("text").isJsonPrimitive() && obj.get("text").getAsJsonPrimitive().isString()) {
-			return obj.get("text").getAsString();
+		var textElement = obj.get("text");
+		if (textElement != null && textElement.isJsonPrimitive() && textElement.getAsJsonPrimitive().isString()) {
+			return textElement.getAsString();
 		}
 
 		String text = extractFirstNonNull(obj, "delta", "content");

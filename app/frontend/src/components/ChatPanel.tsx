@@ -132,6 +132,18 @@ export default function ChatPanel({ installedClis }: Props) {
     if (!prompt.trim() || isLoading || installedClis.length === 0 || !activeCli) return
 
     const parsed = parseAgentCommand(prompt, activeCli)
+    if (parsed.target !== 'all' && !installedClis.includes(parsed.target)) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: ++msgIdRef.current,
+          role: 'assistant',
+          variant: 'system',
+          content: `@${parsed.target} is not installed.`,
+        },
+      ])
+      return
+    }
     const planCmd = parsePlanCommand(parsed.prompt)
     const sessionCmd = parseSessionCommand(planCmd.prompt)
     let nextMode = chatModeRef.current

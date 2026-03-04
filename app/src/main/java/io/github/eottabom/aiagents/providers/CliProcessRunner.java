@@ -380,7 +380,7 @@ final class CliProcessRunner {
 
 	private static void joinQuietly(Thread thread) {
 		try {
-			thread.join((long) 200);
+			thread.join(200);
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
 		}

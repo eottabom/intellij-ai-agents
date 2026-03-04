@@ -158,8 +158,8 @@ export default function MessageList({ messages }: Props) {
 
 	// 스트리밍 중 마지막 메시지 업데이트 시 부드럽지 않은 즉시 스크롤
 	useEffect(() => {
-		const last = messages[messages.length - 1]
-		if (last?.isStreaming) {
+		const hasStreaming = messages.some((m) => m.isStreaming)
+		if (hasStreaming) {
 			const now = Date.now()
 			const elapsed = now - lastStreamingScrollAtRef.current
 			if (elapsed >= 120) {

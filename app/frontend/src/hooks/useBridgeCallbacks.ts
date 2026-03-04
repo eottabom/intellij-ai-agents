@@ -143,6 +143,13 @@ export function useBridgeCallbacks({
   }, [appendAssistant])
 
   useEffect(() => {
+    const prevOnChunk = window.__onChunk
+    const prevOnProgress = window.__onProgress
+    const prevOnDone = window.__onDone
+    const prevOnError = window.__onError
+    const prevOnProjectRefs = window.__onProjectRefs
+    const prevOnSession = window.__onSession
+
     window.__onChunk = ((arg1: CliName | string, arg2?: string) => {
       const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
       const text = arg2 !== undefined ? arg2 : String(arg1)
@@ -285,12 +292,12 @@ export function useBridgeCallbacks({
 	return () => {
 		flushBufferedChunks()
 		flushBufferedProgress()
-		window.__onChunk = (() => {}) as typeof window.__onChunk
-		window.__onProgress = (() => {}) as typeof window.__onProgress
-		window.__onDone = (() => {}) as typeof window.__onDone
-      window.__onError = (() => {}) as typeof window.__onError
-		window.__onProjectRefs = (() => {}) as typeof window.__onProjectRefs
-		window.__onSession = (() => {}) as typeof window.__onSession
+		window.__onChunk = prevOnChunk
+		window.__onProgress = prevOnProgress
+		window.__onDone = prevOnDone
+		window.__onError = prevOnError
+		window.__onProjectRefs = prevOnProjectRefs
+		window.__onSession = prevOnSession
 	}
 	}, [flushBufferedChunks, flushBufferedProgress, msgIdRef, scheduleChunkFlush, scheduleProgressFlush, setMessages, setProgressByCli, setProjectRefs, setRunningClis])
 
