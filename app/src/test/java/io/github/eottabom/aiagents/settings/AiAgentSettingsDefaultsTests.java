@@ -16,7 +16,7 @@ class AiAgentSettingsDefaultsTests {
 	}
 
 	@Test
-	void scanDepthDefaultIsWithinBounds() {
+	void scanDepthDefaultIsSix() {
 		var settings = new AiAgentSettings();
 
 		assertThat(settings.getProjectRefsScanDepth()).isEqualTo(6);
