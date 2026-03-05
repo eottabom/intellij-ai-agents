@@ -270,6 +270,19 @@ export function useBridgeCallbacks({
       setProjectRefs(Array.isArray(refs) ? refs : [])
     }) as typeof window.__onProjectRefs
 
+    const emitSessionStatus = (results: Partial<Record<CliName, string>>) => {
+      const clis = installedClisRef.current
+      const lines = [
+        '🗂 **Session Status**',
+        '',
+        ...clis.map((currentCli) => {
+          const sessionId = results[currentCli]
+          return `- **@${currentCli}**: ${sessionId ? `\`${sessionId}\`` : 'no active session'}`
+        }),
+      ]
+      appendAssistantRef.current(lines.join('\n'), undefined, 'system')
+    }
+
     window.__onSession = ((cli: CliName, sessionId: string) => {
       if (!pendingSessionsRef.current) return
       pendingSessionsRef.current.results[cli] = sessionId
@@ -277,16 +290,7 @@ export function useBridgeCallbacks({
       if (pendingSessionsRef.current.remaining.size === 0) {
         const results = { ...pendingSessionsRef.current.results }
         pendingSessionsRef.current = null
-        const clis = installedClisRef.current
-        const lines = [
-          '🗂 **Session Status**',
-          '',
-          ...clis.map((c) => {
-            const id = results[c]
-            return `- **@${c}**: ${id ? `\`${id}\`` : 'no active session'}`
-          }),
-        ]
-        appendAssistantRef.current(lines.join('\n'), undefined, 'system')
+        emitSessionStatus(results)
       }
     }) as typeof window.__onSession
 
@@ -297,16 +301,7 @@ export function useBridgeCallbacks({
       if (pendingSessionsRef.current.remaining.size === 0) {
         const results = { ...pendingSessionsRef.current.results }
         pendingSessionsRef.current = null
-        const clis = installedClisRef.current
-        const lines = [
-          '🗂 **Session Status**',
-          '',
-          ...clis.map((currentCli) => {
-            const sessionId = results[currentCli]
-            return `- **@${currentCli}**: ${sessionId ? `\`${sessionId}\`` : 'no active session'}`
-          }),
-        ]
-        appendAssistantRef.current(lines.join('\n'), undefined, 'system')
+        emitSessionStatus(results)
       }
     }) as typeof window.__onSessionCleared
 

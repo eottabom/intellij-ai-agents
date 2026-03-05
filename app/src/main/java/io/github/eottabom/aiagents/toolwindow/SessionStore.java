@@ -20,21 +20,21 @@ class SessionStore {
 		this.project = project;
 	}
 
-	void save(String providerName, String sessionId) {
-		PropertiesComponent.getInstance(project).setValue(KEY_PREFIX + providerName, sessionId);
+	void save(AiProvider provider, String sessionId) {
+		PropertiesComponent.getInstance(project).setValue(KEY_PREFIX + provider.cliName, sessionId);
 	}
 
-	String get(String providerName) {
-		return PropertiesComponent.getInstance(project).getValue(KEY_PREFIX + providerName);
+	String get(AiProvider provider) {
+		return PropertiesComponent.getInstance(project).getValue(KEY_PREFIX + provider.cliName);
 	}
 
-	void clear(String providerName) {
-		PropertiesComponent.getInstance(project).unsetValue(KEY_PREFIX + providerName);
+	void clear(AiProvider provider) {
+		PropertiesComponent.getInstance(project).unsetValue(KEY_PREFIX + provider.cliName);
 	}
 
 	void clearAll() {
 		for (AiProvider provider : AiProvider.values()) {
-			clear(provider.cliName);
+			clear(provider);
 		}
 	}
 }

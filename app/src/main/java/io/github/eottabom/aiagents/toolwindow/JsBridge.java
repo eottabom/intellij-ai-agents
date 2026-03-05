@@ -5,9 +5,11 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.openapi.vfs.newvfs.BulkFileListener;
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent;
+import com.intellij.util.concurrency.AppExecutorUtil;
 import com.intellij.ui.jcef.JBCefBrowser;
 import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefJSQuery;
+import io.github.eottabom.aiagents.providers.AiProvider;
 import io.github.eottabom.aiagents.refs.ProjectRefsCollector;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -17,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -33,15 +34,14 @@ import java.util.concurrent.atomic.AtomicReference;
 class JsBridge implements Disposable {
 
 	private static final Logger logger = LoggerFactory.getLogger(JsBridge.class);
-	private static final int EXECUTOR_POOL_SIZE = 4;
 	private static final long CACHE_INVALIDATION_DELAY_MS = 2000;
 
 	private final JBCefBrowser browser;
 	private final Project project;
 	private final SessionStore sessionStore;
 	private final JsBridgeClientNotifier notifier;
-	private final ExecutorService executor = Executors.newFixedThreadPool(EXECUTOR_POOL_SIZE);
-	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+	private final ExecutorService executor = AppExecutorUtil.getAppExecutorService();
+	private final ScheduledExecutorService scheduler = AppExecutorUtil.getAppScheduledExecutorService();
 	private final AtomicReference<String> projectRefsCache = new AtomicReference<>();
 	private final AtomicLong projectRefsVersion = new AtomicLong(0);
 	private final AtomicBoolean projectRefsScanInProgress = new AtomicBoolean(false);
@@ -71,9 +71,14 @@ class JsBridge implements Disposable {
 				if (basePath == null) {
 					return;
 				}
+				var normalizedBasePath = basePath.endsWith("/") ? basePath : basePath + "/";
 				for (var event : events) {
 					var file = event.getFile();
-					if (file != null && file.getPath().startsWith(basePath)) {
+					if (file == null) {
+						continue;
+					}
+					var filePath = file.getPath();
+					if (filePath.equals(basePath) || filePath.startsWith(normalizedBasePath)) {
 						invalidateProjectRefsCacheDebounced();
 						return;
 					}
@@ -104,7 +109,7 @@ class JsBridge implements Disposable {
 				case UNKNOWN            -> notifier.sendError(null, "Unknown message type: " + bridgeMessage.type());
 			}
 		} catch (Exception ex) {
-			logger.warn("Failed to handle message from JS: {}", json, ex);
+			logger.warn("Failed to handle message from JS (payloadLength={})", json == null ? 0 : json.length(), ex);
 			var errorMessage = ex.getMessage();
 			if (errorMessage == null) {
 				errorMessage = "Unknown error processing message";
@@ -127,7 +132,12 @@ class JsBridge implements Disposable {
 		if (providerName == null) {
 			return;
 		}
-		var sessionId = sessionStore.get(providerName);
+		var provider = AiProvider.fromName(providerName).orElse(null);
+		if (provider == null) {
+			notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
+			return;
+		}
+		var sessionId = sessionStore.get(provider);
 		notifier.sendSession(providerName, sessionId);
 	}
 
@@ -136,7 +146,12 @@ class JsBridge implements Disposable {
 		if (providerName == null) {
 			return;
 		}
-		sessionStore.clear(providerName);
+		var provider = AiProvider.fromName(providerName).orElse(null);
+		if (provider == null) {
+			notifier.sendError(null, "Invalid provider. Use one of: claude, gemini, codex.");
+			return;
+		}
+		sessionStore.clear(provider);
 		notifier.sendSessionCleared(providerName);
 	}
 
@@ -204,8 +219,6 @@ class JsBridge implements Disposable {
 			pending.cancel(false);
 		}
 		commandHandler.cancelAllTasks();
-		scheduler.shutdownNow();
-		executor.shutdownNow();
 		jsQuery.dispose();
 	}
 }

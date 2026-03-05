@@ -51,4 +51,23 @@ class CliStreamParsersTests {
 		assertThat(chunk.type()).isEqualTo(ChunkType.TEXT);
 		assertThat(chunk.content()).isEqualTo("build ok");
 	}
+
+	@Test
+	void parseClaudeLineParsesAssistantTextAndToolUse() {
+		var textLine = """
+				{"type":"assistant","message":{"content":[{"type":"text","text":"hello"}]}}
+				""";
+		var textChunk = CliStreamParsers.parseClaudeLine(textLine);
+		assertThat(textChunk).isNotNull();
+		assertThat(textChunk.type()).isEqualTo(ChunkType.TEXT);
+		assertThat(textChunk.content()).isEqualTo("hello");
+
+		var toolLine = """
+				{"type":"assistant","message":{"content":[{"type":"tool_use","name":"search"}]}}
+				""";
+		var toolChunk = CliStreamParsers.parseClaudeLine(toolLine);
+		assertThat(toolChunk).isNotNull();
+		assertThat(toolChunk.type()).isEqualTo(ChunkType.TOOL_USE);
+		assertThat(toolChunk.toolName()).isEqualTo("search");
+	}
 }

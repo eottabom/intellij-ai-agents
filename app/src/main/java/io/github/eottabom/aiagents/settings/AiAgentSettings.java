@@ -17,8 +17,8 @@ import java.util.Set;
 @Service(Service.Level.APP)
 @State(name = "AiAgentSettings", storages = @Storage("aiagents.xml"))
 public final class AiAgentSettings implements PersistentStateComponent<AiAgentSettings.State> {
-	private static final int MIN_TIMEOUT_SECONDS = 10;
-	private static final int MAX_TIMEOUT_SECONDS = 600;
+	public static final int MIN_TIMEOUT_SECONDS = 10;
+	public static final int MAX_TIMEOUT_SECONDS = 600;
 	private static final int MAX_SCAN_DEPTH = 20;
 
 	public static final class State {

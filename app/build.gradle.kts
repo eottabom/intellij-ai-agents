@@ -25,6 +25,20 @@ abstract class ConfigureRunIdeSandboxTask : DefaultTask() {
     }
 }
 
+abstract class ValidateWebviewDistTask : DefaultTask() {
+    @get:InputDirectory
+    @get:Optional
+    abstract val distDir: DirectoryProperty
+
+    @TaskAction
+    fun validate() {
+        val directory = distDir.asFile.get()
+        if (!directory.exists() || directory.listFiles()?.isEmpty() != false) {
+            throw GradleException("Frontend build failed: frontend/dist is empty or missing")
+        }
+    }
+}
+
 group = "io.github.eottabom.aiagents"
 version = "0.0.1"
 
@@ -32,8 +46,7 @@ val ideVersion = "2025.1"
 val npmCmd: String = if (System.getProperty("os.name").lowercase(Locale.ROOT).contains("win")) {
     "npm.cmd"
 } else {
-    val candidates = listOf("/opt/homebrew/bin/npm", "/usr/local/bin/npm")
-    candidates.firstOrNull { File(it).exists() } ?: "npm"
+    "npm"
 }
 val runIdeSandboxConfigDir = layout.buildDirectory.dir("idea-sandbox/IC-$ideVersion/config")
 
@@ -104,8 +117,13 @@ tasks.register<Exec>("buildWebview") {
     outputs.dir("frontend/dist")
 }
 
-tasks.register<Sync>("copyWebview") {
+tasks.register<ValidateWebviewDistTask>("validateWebviewDist") {
     dependsOn("buildWebview")
+    distDir.set(layout.projectDirectory.dir("frontend/dist"))
+}
+
+tasks.register<Sync>("copyWebview") {
+    dependsOn("validateWebviewDist")
     from("frontend/dist")
     into(layout.buildDirectory.dir("generated/webview-resources/webview"))
 }

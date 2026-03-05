@@ -160,7 +160,7 @@ vendor/legacy
 }
 ```
 
-`ignoreDirs`와 `excludeDirs` 모두 동일하게 동작하며, 두 필드를 함께 사용할 수 있습니다.
+권장 키는 `ignoreDirs`입니다. `excludeDirs`는 하위 호환을 위해 동일하게 지원됩니다.
 
 ### 스캔 대상 확장자
 
@@ -187,7 +187,7 @@ app/
 │   ├── settings/           # 플러그인 설정
 │   │   ├── AiAgentSettings.java       # 영속 설정 (refs config, ignored dirs, CLI flags, timeouts)
 │   │   └── AiAgentSettingsConfigurable.java # 설정 UI
-│   └── toolwindow/         # Tool Window UI
+│   ├── toolwindow/         # Tool Window UI
 │       ├── AiAgentToolWindowFactory.java  # Tool Window 팩토리 (CLI 자동 감지)
 │       ├── AiAgentPanel.java          # JCEF 브라우저 패널
 │       ├── JsBridge.java             # Java ↔ JS 브릿지

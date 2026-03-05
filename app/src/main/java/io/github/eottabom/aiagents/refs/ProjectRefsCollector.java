@@ -98,7 +98,7 @@ public final class ProjectRefsCollector {
 			});
 			return GSON.toJson(array);
 		} catch (IOException exception) {
-			logger.warn("Failed to collect project refs: {}", exception.getMessage());
+			logger.warn("Failed to collect project refs", exception);
 			return null;
 		}
 	}
@@ -196,7 +196,7 @@ public final class ProjectRefsCollector {
 			readDirArray(obj, "excludeDirs", dirs);
 			return dirs;
 		} catch (Exception exception) {
-			logger.warn("Failed to load refs config from {}: {}", cfg, exception.getMessage());
+			logger.warn("Failed to load refs config from {}", cfg, exception);
 			return dirs;
 		}
 	}

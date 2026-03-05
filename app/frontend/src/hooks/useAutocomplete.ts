@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { MutableRefObject, RefObject } from 'react'
 import { CliName, ProjectRef } from '../bridge'
 
@@ -51,7 +51,7 @@ function detectMention(text: string, caret: number): MentionState | null {
 }
 
 function detectLeadingTarget(text: string): SlashTarget {
-  const match = text.trimStart().match(/^@(claude|gemini|codex|all)\b/i)
+  const match = text.trimStart().match(/^@(claude|gemini|codex|all)(?=\s|$)/i)
   return (match?.[1]?.toLowerCase() as SlashTarget) ?? null
 }
 
@@ -120,11 +120,18 @@ export function useAutocomplete(
   const mentionItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const slashItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const hashItemRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const mentionTargets: MentionTarget[] = [...installedClis, 'all']
+  const mentionTargets = useMemo<MentionTarget[]>(
+    () => [...installedClis, 'all'],
+    [installedClis],
+  )
 
-  const mentionOptions = mention
-    ? mentionTargets.filter((target) => target.startsWith(mention.query.toLowerCase()))
-    : []
+  const mentionOptions = useMemo(
+    () =>
+      mention
+        ? mentionTargets.filter((target) => target.startsWith(mention.query.toLowerCase()))
+        : [],
+    [mention, mentionTargets],
+  )
 
   const slashOptions: SlashOption[] = (() => {
     if (!slash) return []
@@ -140,15 +147,19 @@ export function useAutocomplete(
     return COMMON_SLASH_COMMANDS.filter((cmd) => cmd.value.slice(1).startsWith(slash.query.toLowerCase()))
   })()
 
-  const hashOptions = hash
-    ? projectRefs
-        .filter((ref) => {
-          const q = hash.query.toLowerCase()
-          if (!q) return true
-          return ref.symbol.toLowerCase().includes(q) || ref.path.toLowerCase().includes(q)
-        })
-        .slice(0, MAX_HASH_OPTIONS)
-    : []
+  const hashOptions = useMemo(
+    () =>
+      hash
+        ? projectRefs
+            .filter((ref) => {
+              const q = hash.query.toLowerCase()
+              if (!q) return true
+              return ref.symbol.toLowerCase().includes(q) || ref.path.toLowerCase().includes(q)
+            })
+            .slice(0, MAX_HASH_OPTIONS)
+        : [],
+    [hash, projectRefs],
+  )
 
   useEffect(() => {
     const el = mentionItemRefs.current[mentionIndex]

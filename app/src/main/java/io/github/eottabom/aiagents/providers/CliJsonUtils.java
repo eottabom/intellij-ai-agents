@@ -5,8 +5,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class CliJsonUtils {
+
+	private static final Logger logger = LoggerFactory.getLogger(CliJsonUtils.class);
 
 	private CliJsonUtils() {
 	}
@@ -21,7 +25,8 @@ final class CliJsonUtils {
 		}
 		try {
 			return JsonParser.parseString(trimmedLine).getAsJsonObject();
-		} catch (Exception ignored) {
+		} catch (Exception exception) {
+			logger.debug("Ignored non-JSON line while parsing CLI output");
 			return null;
 		}
 	}

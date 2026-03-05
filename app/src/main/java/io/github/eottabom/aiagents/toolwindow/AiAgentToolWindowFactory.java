@@ -36,7 +36,7 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
 
 		ApplicationManager.getApplication().executeOnPooledThread(() -> {
 			var detected = detectInstalledProviders();
-			if (!project.isDisposed()) {
+			if (!project.isDisposed() && !Disposer.isDisposed(panel)) {
 				panel.updateInstalledProviders(detected);
 			}
 		});
@@ -89,7 +89,7 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
 			logger.debug("CLI installation check interrupted for {}", cliName);
 			return false;
 		} catch (Exception ex) {
-			logger.debug("Failed to check CLI installation for {}: {}", cliName, ex.getMessage());
+			logger.debug("Failed to check CLI installation for {}", cliName, ex);
 			return false;
 		}
 	}

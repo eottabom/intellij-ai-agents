@@ -24,18 +24,18 @@ hs_err_pid*
 replay_pid*
 
 # Ignore Gradle project-specific cache directory
-.gradle
+/.gradle/
 
 # Ignore Gradle build output directory
-build
+/build/
 
 # Ignore Kotlin plugin data
-.kotlin
+/.kotlin/
 
 app/frontend/dist
 app/frontend/node_modules
 app/frontend/.DS_Store
-app/build
+/app/build/
 app/src/main/resources/webview/
 
 .idea/**

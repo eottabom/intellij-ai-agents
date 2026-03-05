@@ -75,7 +75,7 @@ final class CliStreamParsers {
 		}
 
 		var type = CliJsonUtils.stringField(obj, "type");
-		switch (nullToEmpty(type)) {
+		switch (nullToEmpty(type).toLowerCase(Locale.ROOT)) {
 			case "thread.started":
 				var threadId = CliJsonUtils.stringField(obj, "thread_id");
 				if (threadId != null) {
@@ -90,8 +90,16 @@ final class CliStreamParsers {
 				if (message != null) {
 					return StreamChunk.error(message);
 				}
-				if (obj.has("message")) {
-					return StreamChunk.error(obj.get("message").toString());
+				if (obj.has("message") && obj.get("message").isJsonObject()) {
+					var messageObject = obj.getAsJsonObject("message");
+					var text = CliJsonUtils.stringField(messageObject, "text");
+					if (text != null) {
+						return StreamChunk.error(text);
+					}
+					var errorText = CliJsonUtils.stringField(messageObject, "error");
+					if (errorText != null) {
+						return StreamChunk.error(errorText);
+					}
 				}
 				var error = CliJsonUtils.stringField(obj, "error");
 				if (error != null) {
@@ -198,7 +206,7 @@ final class CliStreamParsers {
 		}
 		var item = obj.getAsJsonObject("item");
 		var itemType = CliJsonUtils.stringField(item, "type");
-		return switch (nullToEmpty(itemType)) {
+		return switch (nullToEmpty(itemType).toLowerCase(Locale.ROOT)) {
 			case "agent_message" -> {
 				var text = CliJsonUtils.stringField(item, "text");
 				if (text != null && !text.isBlank()) {

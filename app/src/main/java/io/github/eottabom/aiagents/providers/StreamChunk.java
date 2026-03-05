@@ -11,7 +11,7 @@ public record StreamChunk(ChunkType type, String content, String toolName, Strin
 	}
 
 	public static StreamChunk done(String sessionId) {
-		return new StreamChunk(ChunkType.DONE, "", null, sessionId);
+		return new StreamChunk(ChunkType.DONE, null, null, sessionId);
 	}
 
 	public static StreamChunk error(String message) {

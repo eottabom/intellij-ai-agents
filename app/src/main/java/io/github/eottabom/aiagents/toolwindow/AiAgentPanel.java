@@ -37,12 +37,16 @@ public class AiAgentPanel implements Disposable {
 	private static final Logger logger = LoggerFactory.getLogger(AiAgentPanel.class);
 
 	private final JPanel container;
-	private final JBCefBrowser browser;
-	private final JsBridge bridge;
+	private JBCefBrowser browser;
+	private JsBridge bridge;
 	private Path webviewTempDir;
 
 	public AiAgentPanel(Project project, List<String> installedProviders) {
 		container = new JPanel(new BorderLayout());
+		if (!JBCefApp.isSupported()) {
+			container.add(new JLabel("JCEF is not supported in this IDE runtime."), BorderLayout.CENTER);
+			return;
+		}
 
 		JBCefClient client = JBCefApp.getInstance().createClient();
 		client.setProperty(JBCefClient.Properties.JS_QUERY_POOL_SIZE, 1);
@@ -83,7 +87,9 @@ public class AiAgentPanel implements Disposable {
 	}
 
 	void updateInstalledProviders(List<String> providers) {
-		bridge.sendInstalledProviders(providers);
+		if (bridge != null) {
+			bridge.sendInstalledProviders(providers);
+		}
 	}
 
 	@Override

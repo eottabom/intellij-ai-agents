@@ -27,4 +27,15 @@ class CliJsonUtilsTests {
 
 		assertNull(text);
 	}
+
+	@Test
+	void extractGeminiTextFallsBackToPartsWhenTextIsBlank() {
+		var element = JsonParser.parseString("""
+				{"text":"","parts":[{"text":"fallback-line"}]}
+				""");
+
+		var text = CliJsonUtils.extractGeminiText(element);
+
+		assertEquals("fallback-line", text);
+	}
 }

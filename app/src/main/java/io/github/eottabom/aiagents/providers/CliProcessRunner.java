@@ -511,6 +511,6 @@ final class CliProcessRunner {
 		final AtomicBoolean sawOutput = new AtomicBoolean(false);
 		final AtomicBoolean sawStructuredOutput = new AtomicBoolean(false);
 		final AtomicLong lastOutputAt = new AtomicLong(System.currentTimeMillis());
-		final StringBuffer stderrBuf = new StringBuffer();
+		final StringBuilder stderrBuf = new StringBuilder();
 	}
 }

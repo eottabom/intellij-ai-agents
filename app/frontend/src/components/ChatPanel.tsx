@@ -132,6 +132,11 @@ export default function ChatPanel({ installedClis }: Props) {
       }
     })
     if (failedClis.length > 0) {
+      appendAssistant(
+        `Failed to send request to: ${failedClis.map((cli) => `@${cli}`).join(', ')}`,
+        undefined,
+        'system',
+      )
       setRunningClis((prev) => prev.filter((c) => !failedClis.includes(c)))
       setProgressByCli((prev) => {
         const next = { ...prev }
@@ -212,9 +217,10 @@ export default function ChatPanel({ installedClis }: Props) {
 
     if (/^\/session$/i.test(parsedPrompt.trim())) {
       if (installedClis.length === 0) return
-      pendingSessionsRef.current = { remaining: new Set(installedClis), results: {} }
+      const targetClis = parsed.target === 'all' ? [...installedClis] : [parsed.target]
+      pendingSessionsRef.current = { remaining: new Set(targetClis), results: {} }
       const failedClis: CliName[] = []
-      installedClis.forEach((cli) => {
+      targetClis.forEach((cli) => {
         try {
           bridge.getSession(cli)
         } catch {
@@ -232,7 +238,7 @@ export default function ChatPanel({ installedClis }: Props) {
         const lines = [
           '🗂 **Session Status**',
           '',
-          ...installedClis.map((cli) => {
+          ...targetClis.map((cli) => {
             const sessionId = results[cli]
             return `- **@${cli}**: ${sessionId ? `\`${sessionId}\`` : 'no active session'}`
           }),
@@ -264,6 +270,9 @@ export default function ChatPanel({ installedClis }: Props) {
           content: '/doctor' + (targetClis.length > 1 ? ' (@all)' : ` (@${targetClis[0]})`),
         },
       ])
+      if (succeededClis.length === 0) {
+        return
+      }
       setRunningClis(succeededClis)
       setProgressByCli(Object.fromEntries(succeededClis.map((cli) => [cli, 'checking...'])) as Partial<Record<CliName, string>>)
       pendingResponseCliRef.current = succeededClis[0] ?? null
