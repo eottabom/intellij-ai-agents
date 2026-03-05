@@ -204,9 +204,32 @@ export default function ChatPanel({ installedClis }: Props) {
     if (/^\/session$/i.test(parsedPrompt.trim())) {
       if (installedClis.length === 0) return
       pendingSessionsRef.current = { remaining: new Set(installedClis), results: {} }
+      const failedClis: CliName[] = []
       installedClis.forEach((cli) => {
-        bridge.getSession(cli)
+        try {
+          bridge.getSession(cli)
+        } catch {
+          failedClis.push(cli)
+          pendingSessionsRef.current?.remaining.delete(cli)
+          pendingSessionsRef.current!.results[cli] = ''
+        }
       })
+      if (failedClis.length > 0) {
+        appendAssistant(`Failed to fetch session for: ${failedClis.map((cli) => `@${cli}`).join(', ')}`, undefined, 'system')
+      }
+      if (pendingSessionsRef.current && pendingSessionsRef.current.remaining.size === 0) {
+        const results = { ...pendingSessionsRef.current.results }
+        pendingSessionsRef.current = null
+        const lines = [
+          '🗂 **Session Status**',
+          '',
+          ...installedClis.map((cli) => {
+            const sessionId = results[cli]
+            return `- **@${cli}**: ${sessionId ? `\`${sessionId}\`` : 'no active session'}`
+          }),
+        ]
+        appendAssistant(lines.join('\n'), undefined, 'system')
+      }
       return
     }
 
@@ -260,8 +283,13 @@ export default function ChatPanel({ installedClis }: Props) {
 
   const handleCancel = () => {
     clearBuffers()
+    const failedClis: CliName[] = []
     runningClis.forEach((cli) => {
-      bridge.cancel(cli)
+      try {
+        bridge.cancel(cli)
+      } catch {
+        failedClis.push(cli)
+      }
     })
     setRunningClis([])
     setProgressByCli({})
@@ -269,23 +297,24 @@ export default function ChatPanel({ installedClis }: Props) {
       previousMessages.map((message) => (message.isStreaming ? { ...message, isStreaming: false } : message)),
     )
     pendingResponseCliRef.current = null
+    if (failedClis.length > 0) {
+      appendAssistant(`Failed to cancel: ${failedClis.map((cli) => `@${cli}`).join(', ')}`, undefined, 'system')
+    }
   }
 
   const handleTogglePlanMode = () => {
-    setChatMode((prev) => {
-      const next = prev === 'plan' ? 'normal' : 'plan'
-      chatModeRef.current = next
-      setMessages((messages) => [
-        ...messages,
-        {
-          id: ++msgIdRef.current,
-          role: 'assistant',
-          variant: 'system',
-          content: `Plan mode ${next === 'plan' ? 'enabled' : 'disabled'}.`,
-        },
-      ])
-      return next
-    })
+    const nextChatMode = chatModeRef.current === 'plan' ? 'normal' : 'plan'
+    chatModeRef.current = nextChatMode
+    setChatMode(nextChatMode)
+    setMessages((messages) => [
+      ...messages,
+      {
+        id: ++msgIdRef.current,
+        role: 'assistant',
+        variant: 'system',
+        content: `Plan mode ${nextChatMode === 'plan' ? 'enabled' : 'disabled'}.`,
+      },
+    ])
   }
 
   const progressEntries = Object.entries(progressByCli) as Array<[CliName, string]>
