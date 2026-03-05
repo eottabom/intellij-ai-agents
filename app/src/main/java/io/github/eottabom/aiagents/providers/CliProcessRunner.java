@@ -248,11 +248,20 @@ final class CliProcessRunner {
 		var thread = new Thread(() -> {
 			var timeout = provider.timeoutMs();
 			while (process.isAlive()) {
+				if (state.cancelled.get()) {
+					return;
+				}
 				if (waitForExitOrInterrupt(process, WATCHDOG_POLL_MS)) {
+					return;
+				}
+				if (state.cancelled.get()) {
 					return;
 				}
 				var idleMs = System.currentTimeMillis() - state.lastOutputAt.get();
 				if (idleMs > timeout && state.timedOut.compareAndSet(false, true)) {
+					if (state.cancelled.get()) {
+						return;
+					}
 					logger.warn("timeout name={} idleMs={}", provider.cliName, idleMs);
 					terminateProcess(process);
 					onChunk.accept(StreamChunk.error(
