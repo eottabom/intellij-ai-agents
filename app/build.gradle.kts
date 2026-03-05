@@ -1,3 +1,5 @@
+import java.util.Locale
+
 plugins {
     id("java")
     id("org.jetbrains.intellij.platform") version "2.5.0"
@@ -27,7 +29,7 @@ group = "io.github.eottabom.aiagents"
 version = "0.0.1"
 
 val ideVersion = "2025.1"
-val npmCmd: String = if (System.getProperty("os.name").lowercase().contains("win")) {
+val npmCmd: String = if (System.getProperty("os.name").lowercase(Locale.ROOT).contains("win")) {
     "npm.cmd"
 } else {
     val candidates = listOf("/opt/homebrew/bin/npm", "/usr/local/bin/npm")
@@ -109,8 +111,7 @@ sourceSets.main {
     resources.srcDir(layout.buildDirectory.dir("generated/webview-resources"))
 }
 
-// mustRunAfter (not dependsOn): test 실행 시 npm 불필요. buildPlugin/runIde가 copyWebview를 보장.
-tasks.named("processResources") { mustRunAfter("copyWebview") }
+tasks.named("processResources") { dependsOn("copyWebview") }
 
 tasks.test {
     useJUnitPlatform()

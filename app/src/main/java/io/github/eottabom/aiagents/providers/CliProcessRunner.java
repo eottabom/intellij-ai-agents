@@ -29,8 +29,15 @@ final class CliProcessRunner {
 
 	private static Consumer<StreamChunk> serialized(Consumer<StreamChunk> onChunk) {
 		var lock = new Object();
+		var terminated = new AtomicBoolean(false);
 		return chunk -> {
 			synchronized (lock) {
+				if (terminated.get()) {
+					return;
+				}
+				if (chunk.type() == ChunkType.ERROR || chunk.type() == ChunkType.DONE) {
+					terminated.set(true);
+				}
 				onChunk.accept(chunk);
 			}
 		};

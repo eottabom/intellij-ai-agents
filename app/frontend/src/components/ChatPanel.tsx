@@ -135,7 +135,7 @@ export default function ChatPanel({ installedClis }: Props) {
       setRunningClis((prev) => prev.filter((c) => !failedClis.includes(c)))
       setProgressByCli((prev) => {
         const next = { ...prev }
-        failedClis.forEach((c) => delete next[c])
+        failedClis.forEach((c) => { delete next[c] })
         return next
       })
       if (pendingResponseCliRef.current && failedClis.includes(pendingResponseCliRef.current)) {
@@ -212,9 +212,15 @@ export default function ChatPanel({ installedClis }: Props) {
 
     if (/^\/doctor$/i.test(parsedPrompt.trim())) {
       const targetClis = parsed.target === 'all' ? [...installedClis] : [parsed.target]
+      const doctorFailedClis: CliName[] = []
       targetClis.forEach((cli) => {
-        bridge.chat(cli, '/doctor', 'normal')
+        try {
+          bridge.chat(cli, '/doctor', 'normal')
+        } catch {
+          doctorFailedClis.push(cli)
+        }
       })
+      const succeededClis = targetClis.filter((c) => !doctorFailedClis.includes(c))
       setMessages((prev) => [
         ...prev,
         {
@@ -223,9 +229,9 @@ export default function ChatPanel({ installedClis }: Props) {
           content: '/doctor' + (targetClis.length > 1 ? ' (@all)' : ` (@${targetClis[0]})`),
         },
       ])
-      setRunningClis(targetClis)
-      setProgressByCli(Object.fromEntries(targetClis.map((cli) => [cli, 'checking...'])) as Partial<Record<CliName, string>>)
-      pendingResponseCliRef.current = targetClis[0] ?? null
+      setRunningClis(succeededClis)
+      setProgressByCli(Object.fromEntries(succeededClis.map((cli) => [cli, 'checking...'])) as Partial<Record<CliName, string>>)
+      pendingResponseCliRef.current = succeededClis[0] ?? null
       return
     }
 
