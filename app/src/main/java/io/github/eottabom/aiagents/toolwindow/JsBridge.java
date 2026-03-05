@@ -10,6 +10,8 @@ import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefJSQuery;
 import io.github.eottabom.aiagents.refs.ProjectRefsCollector;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 class JsBridge implements Disposable {
 
+	private static final Logger logger = LoggerFactory.getLogger(JsBridge.class);
 	private static final int EXECUTOR_POOL_SIZE = 4;
 	private static final long CACHE_INVALIDATION_DELAY_MS = 2000;
 
@@ -39,7 +42,6 @@ class JsBridge implements Disposable {
 	private final JsBridgeClientNotifier notifier;
 	private final ExecutorService executor = Executors.newFixedThreadPool(EXECUTOR_POOL_SIZE);
 	private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-	private final Map<String, Future<?>> runningTasks = new ConcurrentHashMap<>();
 	private final AtomicReference<String> projectRefsCache = new AtomicReference<>();
 	private final AtomicLong projectRefsVersion = new AtomicLong(0);
 	private final AtomicBoolean projectRefsScanInProgress = new AtomicBoolean(false);
@@ -53,6 +55,7 @@ class JsBridge implements Disposable {
 		this.project = project;
 		this.sessionStore = new SessionStore(project);
 		this.notifier = new JsBridgeClientNotifier(browser);
+		Map<String, Future<?>> runningTasks = new ConcurrentHashMap<>();
 		this.commandHandler = new ChatCommandHandler(notifier, sessionStore, executor, runningTasks);
 		jsQuery = JBCefJSQuery.create((JBCefBrowserBase) browser);
 		jsQuery.addHandler(request -> {
@@ -101,9 +104,10 @@ class JsBridge implements Disposable {
 				case UNKNOWN            -> notifier.sendError(null, "Unknown message type: " + bridgeMessage.type());
 			}
 		} catch (Exception ex) {
+			logger.warn("Failed to handle message from JS: {}", json, ex);
 			var errorMessage = ex.getMessage();
 			if (errorMessage == null) {
-				errorMessage = "Unknown error";
+				errorMessage = "Unknown error processing message";
 			}
 			notifier.sendError(null, errorMessage);
 		}
@@ -199,8 +203,7 @@ class JsBridge implements Disposable {
 		if (pending != null) {
 			pending.cancel(false);
 		}
-		runningTasks.values().forEach(task -> task.cancel(true));
-		runningTasks.clear();
+		commandHandler.cancelAllTasks();
 		scheduler.shutdownNow();
 		executor.shutdownNow();
 		jsQuery.dispose();

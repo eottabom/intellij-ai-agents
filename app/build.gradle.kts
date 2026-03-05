@@ -60,6 +60,9 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.assertj.core)
     testRuntimeOnly(libs.junit.platform.launcher)
+    // IntelliJ test runtime initializes JUnit internals that still reference org.junit.runners.model.Statement.
+    // Keep tests on JUnit5; add JUnit4 only as runtime compatibility for the IntelliJ test environment.
+    testRuntimeOnly(libs.junit4)
 
     intellijPlatform {
         intellijIdeaCommunity(ideVersion)

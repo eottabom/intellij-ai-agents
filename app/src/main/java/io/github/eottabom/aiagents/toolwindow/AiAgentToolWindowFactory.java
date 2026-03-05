@@ -72,16 +72,16 @@ public class AiAgentToolWindowFactory implements ToolWindowFactory {
 			var process = new ProcessBuilder(command)
 					.redirectErrorStream(true)
 					.start();
-			try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-				while (reader.readLine() != null) {
-					// consume
-				}
-			}
 			var processFinished = process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
 			if (!processFinished) {
 				process.destroyForcibly();
 				process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS);
 				return false;
+			}
+			try (var reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+				while (reader.readLine() != null) {
+					// consume
+				}
 			}
 			return process.exitValue() == 0;
 		} catch (InterruptedException exception) {

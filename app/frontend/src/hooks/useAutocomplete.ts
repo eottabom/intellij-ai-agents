@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { MutableRefObject, RefObject } from 'react'
 import { CliName, ProjectRef } from '../bridge'
 
 type MentionTarget = CliName | 'all'
@@ -85,19 +86,19 @@ export interface UseAutocompleteResult {
   mention: MentionState | null
   mentionIndex: number
   mentionOptions: MentionTarget[]
-  mentionItemRefs: React.MutableRefObject<Array<HTMLButtonElement | null>>
+  mentionItemRefs: MutableRefObject<Array<HTMLButtonElement | null>>
   slash: SlashState | null
   slashIndex: number
   slashOptions: SlashOption[]
-  slashItemRefs: React.MutableRefObject<Array<HTMLButtonElement | null>>
+  slashItemRefs: MutableRefObject<Array<HTMLButtonElement | null>>
   hash: HashState | null
   hashIndex: number
   hashOptions: ProjectRef[]
-  hashItemRefs: React.MutableRefObject<Array<HTMLButtonElement | null>>
+  hashItemRefs: MutableRefObject<Array<HTMLButtonElement | null>>
   openMention: (nextText: string, caret: number | null) => void
-  applyMention: (target: MentionTarget, text: string, setText: (v: string) => void, textareaRef: React.RefObject<HTMLTextAreaElement | null>) => void
-  applySlash: (option: SlashOption, text: string, setText: (v: string) => void, textareaRef: React.RefObject<HTMLTextAreaElement | null>) => void
-  applyHash: (ref: ProjectRef, text: string, setText: (v: string) => void, textareaRef: React.RefObject<HTMLTextAreaElement | null>) => void
+  applyMention: (target: MentionTarget, text: string, setText: (v: string) => void, textareaRef: RefObject<HTMLTextAreaElement | null>) => void
+  applySlash: (option: SlashOption, text: string, setText: (v: string) => void, textareaRef: RefObject<HTMLTextAreaElement | null>) => void
+  applyHash: (ref: ProjectRef, text: string, setText: (v: string) => void, textareaRef: RefObject<HTMLTextAreaElement | null>) => void
   setMentionIndex: (v: number | ((prev: number) => number)) => void
   setSlashIndex: (v: number | ((prev: number) => number)) => void
   setHashIndex: (v: number | ((prev: number) => number)) => void
@@ -196,7 +197,7 @@ export function useAutocomplete(
     target: MentionTarget,
     text: string,
     setText: (v: string) => void,
-    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+    textareaRef: RefObject<HTMLTextAreaElement | null>,
   ) => {
     if (!mention) return
     const next = `${text.slice(0, mention.start)}@${target} ${text.slice(mention.end)}`
@@ -216,7 +217,7 @@ export function useAutocomplete(
     option: SlashOption,
     text: string,
     setText: (v: string) => void,
-    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+    textareaRef: RefObject<HTMLTextAreaElement | null>,
   ) => {
     if (!slash) return
     const replacement = option.value
@@ -239,7 +240,7 @@ export function useAutocomplete(
     ref: ProjectRef,
     text: string,
     setText: (v: string) => void,
-    textareaRef: React.RefObject<HTMLTextAreaElement | null>,
+    textareaRef: RefObject<HTMLTextAreaElement | null>,
   ) => {
     if (!hash) return
     const token = `#${ref.symbol} `

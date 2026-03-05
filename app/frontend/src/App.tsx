@@ -3,12 +3,23 @@ import { CliName } from './bridge'
 import ChatPanel from './components/ChatPanel'
 import './index.css'
 
+function isCliName(value: unknown): value is CliName {
+  return value === 'claude' || value === 'gemini' || value === 'codex'
+}
+
+function sanitizeInstalledClis(value: unknown): CliName[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  return value.filter(isCliName)
+}
+
 export default function App() {
   const [installedClis, setInstalledClis] = useState<CliName[]>([])
 
   useEffect(() => {
     window.__onInstalledClis = (clis) => {
-      setInstalledClis(clis)
+      setInstalledClis(sanitizeInstalledClis(clis))
     }
 
     window.dispatchEvent(new Event('webviewReady'))

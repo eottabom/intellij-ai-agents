@@ -79,7 +79,7 @@ function CodeBlock({ code, language }: CodeBlockProps) {
 
 const markdownComponents: React.ComponentProps<typeof ReactMarkdown>['components'] = {
   code({ className, children, ...props }) {
-    const match = /language-(\w+)/.exec(className || '')
+    const match = /language-([a-z0-9_+-]+)/i.exec(className || '')
     const code = String(children).replace(/\n$/, '')
     return match ? (
       <CodeBlock code={code} language={match[1]} />

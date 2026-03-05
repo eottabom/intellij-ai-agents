@@ -18,20 +18,24 @@ interface BridgePayload {
 
 declare global {
   interface Window {
-    __bridge: { send: (json: string) => void }
-    __onInstalledClis: (clis: CliName[]) => void
-    __onChunk: ((text: string) => void) & ((cli: CliName, text: string) => void)
-    __onProgress: ((text: string) => void) & ((cli: CliName, text: string) => void)
-    __onDone: (() => void) & ((cli: CliName) => void)
-    __onError: ((error: string) => void) & ((cli: CliName, error: string) => void)
-    __onSession: (cli: CliName, sessionId: string) => void
-    __onSessionCleared: (cli: CliName) => void
-    __onProjectRefs: (refs: ProjectRef[]) => void
+    __bridge?: { send: (json: string) => void }
+    __onInstalledClis?: (clis: unknown) => void
+    __onChunk?: ((text: string) => void) & ((cli: CliName, text: string) => void)
+    __onProgress?: ((text: string) => void) & ((cli: CliName, text: string) => void)
+    __onDone?: (() => void) & ((cli: CliName) => void)
+    __onError?: ((error: string) => void) & ((cli: CliName, error: string) => void)
+    __onSession?: (cli: CliName, sessionId: string) => void
+    __onSessionCleared?: (cli: CliName) => void
+    __onProjectRefs?: (refs: ProjectRef[]) => void
   }
 }
 
 function send(payload: BridgePayload) {
-  window.__bridge?.send(JSON.stringify(payload))
+  const bridge = window.__bridge
+  if (!bridge || typeof bridge.send !== 'function') {
+    throw new Error('Bridge is not ready')
+  }
+  bridge.send(JSON.stringify(payload))
 }
 
 export const bridge = {

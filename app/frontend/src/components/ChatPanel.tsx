@@ -105,7 +105,7 @@ export default function ChatPanel({ installedClis }: Props) {
     targetClis: CliName[],
     userVisibleText: string,
     userCli?: CliName,
-    promptFactory?: (cli: CliName) => string,
+    promptFactory?: () => string,
     mode: ChatMode = chatModeRef.current,
   ) => {
     const snapshot = messagesRef.current
@@ -125,7 +125,7 @@ export default function ChatPanel({ installedClis }: Props) {
     const failedClis: CliName[] = []
     targetClis.forEach((cli) => {
       try {
-        const finalPrompt = promptFactory ? promptFactory(cli) : composePromptWithContext(userVisibleText, snapshot)
+        const finalPrompt = promptFactory ? promptFactory() : composePromptWithContext(userVisibleText, snapshot)
         bridge.chat(cli, finalPrompt, mode)
       } catch {
         failedClis.push(cli)
@@ -162,7 +162,11 @@ export default function ChatPanel({ installedClis }: Props) {
       return
     }
     const planCmd = parsePlanCommand(parsed.prompt)
-    const sessionCmd = parseSessionCommand(planCmd.prompt)
+    const sessionCmd = parseSessionCommand(parsed.prompt)
+    if (planCmd.modeChanged !== null && sessionCmd.clearAllSessions) {
+      appendAssistant('Use either `/plan` or `/clearall` in one message.', undefined, 'system')
+      return
+    }
     let nextMode = chatModeRef.current
     if (planCmd.modeChanged) {
       nextMode = planCmd.modeChanged
@@ -177,10 +181,15 @@ export default function ChatPanel({ installedClis }: Props) {
         },
       ])
     }
-    const parsedPrompt = sessionCmd.prompt
+    const parsedPrompt = sessionCmd.clearAllSessions ? '' : planCmd.prompt
 
     if (sessionCmd.clearAllSessions) {
-      bridge.clearAllSessions()
+      try {
+        bridge.clearAllSessions()
+      } catch {
+        appendAssistant('Failed to clear saved sessions.', undefined, 'system')
+        return
+      }
       appendAssistant('Cleared saved sessions for all CLIs.', undefined, 'system')
       return
     }
@@ -244,6 +253,9 @@ export default function ChatPanel({ installedClis }: Props) {
         }
       })
       const succeededClis = targetClis.filter((c) => !doctorFailedClis.includes(c))
+      if (doctorFailedClis.length > 0) {
+        appendAssistant(`Failed to run /doctor for: ${doctorFailedClis.map((cli) => `@${cli}`).join(', ')}`, undefined, 'system')
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -276,7 +288,7 @@ export default function ChatPanel({ installedClis }: Props) {
       targetClis,
       parsed.target === 'all' ? `[@all] ${parsedPrompt}` : parsedPrompt,
       parsed.target === 'all' ? undefined : parsed.target,
-      (cli) => composePromptWithContext(parsedPrompt, messagesRef.current),
+      () => composePromptWithContext(parsedPrompt, messagesRef.current),
       nextMode,
     )
   }

@@ -79,11 +79,11 @@ final class CliProcessRunner {
 					terminateProcess(process);
 					break;
 				}
-				var trimmed = line.trim();
-				if (trimmed.isEmpty()) {
+				if (line.isBlank()) {
 					continue;
 				}
-				if (isNoiseLine(trimmed)) {
+				var normalizedLine = line.stripTrailing();
+				if (isNoiseLine(normalizedLine.trim())) {
 					continue;
 				}
 				if (outputBuf.length() < SUBCOMMAND_OUTPUT_BUFFER_LIMIT) {
@@ -91,7 +91,7 @@ final class CliProcessRunner {
 						outputBuf.append('\n');
 					}
 					var remaining = SUBCOMMAND_OUTPUT_BUFFER_LIMIT - outputBuf.length();
-					outputBuf.append(trimmed, 0, Math.min(trimmed.length(), remaining));
+					outputBuf.append(normalizedLine, 0, Math.min(normalizedLine.length(), remaining));
 				}
 			}
 		} catch (Exception ex) {
@@ -184,7 +184,6 @@ final class CliProcessRunner {
 		try {
 			var pb = new ProcessBuilder(command);
 			pb.directory(new File(resolveWorkDir(workDir)));
-			pb.environment().putAll(System.getenv());
 			pb.redirectErrorStream(false);
 
 			var process = pb.start();
@@ -333,12 +332,13 @@ final class CliProcessRunner {
 					if (trimmed.startsWith("{") || state.sawStructuredOutput.get()) {
 						continue;
 					}
+					var normalizedLine = line.stripTrailing();
 					if (plainTextBuf.length() < PLAINTEXT_BUFFER_LIMIT) {
 						var remaining = PLAINTEXT_BUFFER_LIMIT - plainTextBuf.length();
-						if (trimmed.length() + 1 <= remaining) {
-							plainTextBuf.append(trimmed).append('\n');
+						if (normalizedLine.length() + 1 <= remaining) {
+							plainTextBuf.append(normalizedLine).append('\n');
 						} else {
-							plainTextBuf.append(trimmed, 0, Math.min(trimmed.length(), remaining));
+							plainTextBuf.append(normalizedLine, 0, Math.min(normalizedLine.length(), remaining));
 						}
 					}
 					continue;

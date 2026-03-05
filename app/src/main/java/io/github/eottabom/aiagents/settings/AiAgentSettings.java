@@ -18,6 +18,8 @@ import java.util.Set;
 @State(name = "AiAgentSettings", storages = @Storage("aiagents.xml"))
 public final class AiAgentSettings implements PersistentStateComponent<AiAgentSettings.State> {
 	private static final int MIN_TIMEOUT_SECONDS = 10;
+	private static final int MAX_TIMEOUT_SECONDS = 600;
+	private static final int MAX_SCAN_DEPTH = 20;
 
 	public static final class State {
 		public String refsConfigPath = ".aiagents/refs-config.json";
@@ -125,7 +127,7 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 	}
 
 	public void setClaudeTimeoutSec(int sec) {
-		state.claudeTimeoutSec = Math.max(MIN_TIMEOUT_SECONDS, sec);
+		state.claudeTimeoutSec = clampTimeout(sec);
 	}
 
 	public int getGeminiTimeoutSec() {
@@ -133,7 +135,7 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 	}
 
 	public void setGeminiTimeoutSec(int sec) {
-		state.geminiTimeoutSec = Math.max(MIN_TIMEOUT_SECONDS, sec);
+		state.geminiTimeoutSec = clampTimeout(sec);
 	}
 
 	public int getCodexTimeoutSec() {
@@ -141,15 +143,17 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 	}
 
 	public void setCodexTimeoutSec(int sec) {
-		state.codexTimeoutSec = Math.max(MIN_TIMEOUT_SECONDS, sec);
+		state.codexTimeoutSec = clampTimeout(sec);
 	}
 
 	private static int clampTimeoutOrDefault(int value, int defaultValue) {
 		var resolvedValue = value > 0 ? value : defaultValue;
-		return Math.max(MIN_TIMEOUT_SECONDS, resolvedValue);
+		return clampTimeout(resolvedValue);
 	}
 
-	private static final int MAX_SCAN_DEPTH = 20;
+	private static int clampTimeout(int value) {
+		return Math.max(MIN_TIMEOUT_SECONDS, Math.min(MAX_TIMEOUT_SECONDS, value));
+	}
 
 	public int getProjectRefsScanDepth() {
 		if (state.projectRefsScanDepth <= 0) {
@@ -159,6 +163,6 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 	}
 
 	public void setProjectRefsScanDepth(int depth) {
-		state.projectRefsScanDepth = Math.max(1, depth);
+		state.projectRefsScanDepth = Math.max(1, Math.min(MAX_SCAN_DEPTH, depth));
 	}
 }

@@ -7,6 +7,8 @@ import com.google.gson.JsonObject;
 import com.intellij.openapi.project.Project;
 import io.github.eottabom.aiagents.settings.AiAgentSettings;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -18,11 +20,14 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Locale;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 public final class ProjectRefsCollector {
 
+	private static final Logger logger = LoggerFactory.getLogger(ProjectRefsCollector.class);
 	private static final Gson GSON = new Gson();
 	private static final int MAX_REFS = 800;
+	private static final Pattern HASHED_FILENAME_PATTERN = Pattern.compile(".*-[0-9a-f]{6,}\\.[A-Za-z0-9]+$", Pattern.CASE_INSENSITIVE);
 	private static final Set<String> DEFAULT_IGNORED_DIRS = Set.of(
 			".git",
 			".idea",
@@ -92,7 +97,8 @@ public final class ProjectRefsCollector {
 				}
 			});
 			return GSON.toJson(array);
-		} catch (IOException ignored) {
+		} catch (IOException exception) {
+			logger.warn("Failed to collect project refs: {}", exception.getMessage());
 			return null;
 		}
 	}
@@ -133,7 +139,7 @@ public final class ProjectRefsCollector {
 		if (fileName.endsWith(".min.js")) {
 			return false;
 		}
-		return !fileName.matches(".*-[A-Za-z0-9]{6,}\\.[A-Za-z0-9]+$");
+		return !HASHED_FILENAME_PATTERN.matcher(fileName).matches();
 	}
 
 	private static JsonObject toRefJson(Path root, Path file) {
@@ -189,7 +195,8 @@ public final class ProjectRefsCollector {
 			readDirArray(obj, "ignoreDirs", dirs);
 			readDirArray(obj, "excludeDirs", dirs);
 			return dirs;
-		} catch (Exception ignored) {
+		} catch (Exception exception) {
+			logger.warn("Failed to load refs config from {}: {}", cfg, exception.getMessage());
 			return dirs;
 		}
 	}

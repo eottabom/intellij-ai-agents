@@ -120,9 +120,6 @@ class ChatCommandHandler {
 					}
 					return null;
 				}
-				if (completeTaskIfCurrent(providerName, requestId)) {
-					notifier.sendDone(providerName);
-				}
 				return null;
 			});
 			runningTaskRequestIds.put(providerName, requestId);
@@ -138,12 +135,6 @@ class ChatCommandHandler {
 				}
 				notifier.sendError(providerName, "Failed to schedule provider task: " + message);
 			}
-		}
-	}
-
-	private boolean isCurrentRequestIdForProvider(String providerName, long requestId) {
-		synchronized (runningTasks) {
-			return isCurrentRequestIdForProviderLocked(providerName, requestId);
 		}
 	}
 
@@ -202,42 +193,44 @@ class ChatCommandHandler {
 	}
 
 	void onDoctorChunk(String providerName, long requestId, StreamChunk chunk, DoctorOutputBuffer buffer) {
-		if (!isCurrentRequestIdForProvider(providerName, requestId)) {
-			return;
-		}
-		switch (chunk.type()) {
-			case TEXT -> {
-				if (!chunk.content().isBlank()) {
-					if (!buffer.output.isEmpty()) {
-						buffer.output.append('\n');
+		synchronized (runningTasks) {
+			if (!isCurrentRequestIdForProviderLocked(providerName, requestId)) {
+				return;
+			}
+			switch (chunk.type()) {
+				case TEXT -> {
+					if (!chunk.content().isBlank()) {
+						if (!buffer.output.isEmpty()) {
+							buffer.output.append('\n');
+						}
+						buffer.output.append(chunk.content().trim());
 					}
-					buffer.output.append(chunk.content().trim());
 				}
-			}
-			case TOOL_USE -> { /* doctor는 성공/실패 요약만 노출 */ }
-			case ERROR -> {
-				if (!completeTaskIfCurrent(providerName, requestId)) {
-					return;
+				case TOOL_USE -> { /* doctor는 성공/실패 요약만 노출 */ }
+				case ERROR -> {
+					if (!completeTaskIfCurrentLocked(providerName, requestId)) {
+						return;
+					}
+					lastProgressByProvider.remove(providerName);
+					var details = buffer.output.toString().trim();
+					if (!details.isBlank()) {
+						notifier.sendChunk(providerName, details);
+					}
+					notifier.sendError(providerName, chunk.content());
 				}
-				lastProgressByProvider.remove(providerName);
-				var details = buffer.output.toString().trim();
-				if (!details.isBlank()) {
-					notifier.sendChunk(providerName, details);
+				case DONE -> {
+					if (!completeTaskIfCurrentLocked(providerName, requestId)) {
+						return;
+					}
+					lastProgressByProvider.remove(providerName);
+					var version = buffer.output.toString().trim();
+					var label = providerName.toUpperCase(Locale.ROOT) + " CLI 사용 가능";
+					if (!version.isBlank()) {
+						label += " (v" + version + ")";
+					}
+					notifier.sendChunk(providerName, label);
+					notifier.sendDone(providerName);
 				}
-				notifier.sendError(providerName, chunk.content());
-			}
-			case DONE -> {
-				if (!completeTaskIfCurrent(providerName, requestId)) {
-					return;
-				}
-				lastProgressByProvider.remove(providerName);
-				var version = buffer.output.toString().trim();
-				var label = providerName.toUpperCase(Locale.ROOT) + " CLI 사용 가능";
-				if (!version.isBlank()) {
-					label += " (v" + version + ")";
-				}
-				notifier.sendChunk(providerName, label);
-				notifier.sendDone(providerName);
 			}
 		}
 	}
@@ -249,6 +242,14 @@ class ChatCommandHandler {
 			var task = runningTasks.remove(providerName);
 			if (task != null) {
 				task.cancel(true);
+			}
+		}
+	}
+
+	void cancelAllTasks() {
+		synchronized (runningTasks) {
+			for (var providerName : runningTasks.keySet()) {
+				cancelTask(providerName);
 			}
 		}
 	}

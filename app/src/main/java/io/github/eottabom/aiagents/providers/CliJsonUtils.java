@@ -81,11 +81,14 @@ final class CliJsonUtils {
 	private static String extractObjectText(JsonObject obj) {
 		var textElement = obj.get("text");
 		if (textElement != null && textElement.isJsonPrimitive() && textElement.getAsJsonPrimitive().isString()) {
-			return textElement.getAsString();
+			var textValue = textElement.getAsString();
+			if (!textValue.isBlank()) {
+				return textValue;
+			}
 		}
 
 		String text = extractFirstNonNull(obj, "delta", "content");
-		if (text != null) {
+		if (text != null && !text.isBlank()) {
 			return text;
 		}
 
@@ -104,7 +107,7 @@ final class CliJsonUtils {
 				continue;
 			}
 			String text = extractGeminiText(obj.get(key));
-			if (text != null) {
+			if (text != null && !text.isBlank()) {
 				return text;
 			}
 		}

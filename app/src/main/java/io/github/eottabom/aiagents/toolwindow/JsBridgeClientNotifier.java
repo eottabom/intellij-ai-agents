@@ -41,8 +41,15 @@ class JsBridgeClientNotifier {
 	}
 
 	void sendProjectRefs(String refsJson) {
-		js("window.__onProjectRefs && window.__onProjectRefs(JSON.parse(%s))"
-				.formatted(GSON.toJson(refsJson)));
+		js("""
+				if (window.__onProjectRefs) {
+					try {
+						window.__onProjectRefs(JSON.parse(%s));
+					} catch (_) {
+						window.__onProjectRefs([]);
+					}
+				}
+				""".formatted(GSON.toJson(refsJson)));
 	}
 
 	void sendChunk(String cli, String text) {

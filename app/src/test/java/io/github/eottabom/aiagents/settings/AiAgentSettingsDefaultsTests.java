@@ -91,4 +91,27 @@ class AiAgentSettingsDefaultsTests {
 		assertThat(settings.getGeminiTimeoutSec()).as("gemini min").isEqualTo(10);
 		assertThat(settings.getCodexTimeoutSec()).as("codex min").isEqualTo(10);
 	}
+
+	@Test
+	void timeoutGettersAndSettersClampMaximum() {
+		var settings = new AiAgentSettings();
+
+		var corruptedState = new AiAgentSettings.State();
+		corruptedState.claudeTimeoutSec = 9999;
+		corruptedState.geminiTimeoutSec = 1000;
+		corruptedState.codexTimeoutSec = 601;
+		settings.loadState(corruptedState);
+
+		assertThat(settings.getClaudeTimeoutSec()).as("claude max").isEqualTo(600);
+		assertThat(settings.getGeminiTimeoutSec()).as("gemini max").isEqualTo(600);
+		assertThat(settings.getCodexTimeoutSec()).as("codex max").isEqualTo(600);
+
+		settings.setClaudeTimeoutSec(10_000);
+		settings.setGeminiTimeoutSec(10_000);
+		settings.setCodexTimeoutSec(10_000);
+
+		assertThat(settings.getClaudeTimeoutSec()).as("claude setter max").isEqualTo(600);
+		assertThat(settings.getGeminiTimeoutSec()).as("gemini setter max").isEqualTo(600);
+		assertThat(settings.getCodexTimeoutSec()).as("codex setter max").isEqualTo(600);
+	}
 }

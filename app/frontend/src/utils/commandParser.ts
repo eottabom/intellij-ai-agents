@@ -19,7 +19,7 @@ export interface SessionCommandResult {
 }
 
 export function parseAgentCommand(raw: string, fallbackCli: CliName): AgentCommandResult {
-  const match = raw.match(/^@(claude|gemini|codex|all)\b\s*/i)
+  const match = raw.match(/^@(claude|gemini|codex|all)(?=\s|$)\s*/i)
   if (!match) {
     return { target: fallbackCli as Target, prompt: raw, switched: false }
   }
