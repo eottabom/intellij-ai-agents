@@ -98,7 +98,7 @@ final class CliProcessRunner {
 			logger.debug("Error reading stdout for {} {}: {}", provider.cliName, subcommand, ex.getMessage());
 		}
 
-		var exitCode = awaitExit(process, stderrThread);
+		var exitCode = awaitExit(process, stderrThread, state);
 		watchdogThread.interrupt();
 		joinQuietly(watchdogThread);
 		cancelThread.interrupt();
@@ -112,8 +112,8 @@ final class CliProcessRunner {
 			return;
 		}
 
-		var output = outputBuf.toString().trim();
-		var stderr = state.stderrBuf.toString().trim();
+		var output = outputBuf.toString().stripTrailing();
+		var stderr = state.stderrBuf.toString().stripTrailing();
 
 		if (exitCode != 0) {
 			if (!stderr.isBlank()) {
@@ -163,7 +163,7 @@ final class CliProcessRunner {
 
 		var lastSessionId = readStdout(provider, process, state, safeChunk);
 
-		var exitCode = awaitExit(process, stderrThread);
+		var exitCode = awaitExit(process, stderrThread, state);
 		watchdogThread.interrupt();
 		joinQuietly(watchdogThread);
 		cancelThread.interrupt();
@@ -368,7 +368,7 @@ final class CliProcessRunner {
 			return lastSessionId;
 		}
 		if (!state.sawOutput.get()) {
-			var plainText = plainTextBuf.toString().trim();
+			var plainText = plainTextBuf.toString().stripTrailing();
 			if (!plainText.isBlank()) {
 				onChunk.accept(StreamChunk.text(plainText));
 				state.sawOutput.set(true);
@@ -378,13 +378,16 @@ final class CliProcessRunner {
 		return lastSessionId;
 	}
 
-	private static int awaitExit(Process process, Thread stderrThread) {
+	private static int awaitExit(Process process, Thread stderrThread, RunState state) {
 		try {
 			var code = process.waitFor();
 			stderrThread.join(200);
 			return code;
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
+			state.cancelled.set(true);
+			terminateProcess(process);
+			joinQuietly(stderrThread);
 			return -1;
 		}
 	}
@@ -396,7 +399,7 @@ final class CliProcessRunner {
 			RunState state,
 			Consumer<StreamChunk> onChunk
 	) {
-		var stderr = state.stderrBuf.toString().trim();
+		var stderr = state.stderrBuf.toString().stripTrailing();
 
 		if (exitCode != 0) {
 			if (!stderr.isBlank()) {

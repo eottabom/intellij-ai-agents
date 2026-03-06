@@ -63,7 +63,10 @@ public class AiAgentSettingsConfigurable implements Configurable {
 		addTimeoutSection(formPanel, constraints);
 		addScanDepthSection(formPanel, constraints);
 
-		mainPanel.add(formPanel, BorderLayout.NORTH);
+		var scrollPane = new JScrollPane(formPanel);
+		scrollPane.setBorder(BorderFactory.createEmptyBorder());
+		scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+		mainPanel.add(scrollPane, BorderLayout.CENTER);
 		return mainPanel;
 	}
 
@@ -141,7 +144,9 @@ public class AiAgentSettingsConfigurable implements Configurable {
 	}
 
 	private boolean isRefsConfigModified(AiAgentSettings settings) {
-		if (!settings.getRefsConfigPath().equals(refsConfigPathField.getText().trim())) {
+		var savedPath = normalizeRefsConfigPath(settings.getRefsConfigPath());
+		var currentPath = normalizeRefsConfigPath(refsConfigPathField.getText());
+		if (!savedPath.equals(currentPath)) {
 			return true;
 		}
 		return !settings.getExtraIgnoredDirsRaw().equals(extraIgnoredDirsArea.getText());
@@ -206,6 +211,13 @@ public class AiAgentSettingsConfigurable implements Configurable {
 
 	private static int clampScanDepth(int value) {
 		return Math.max(1, Math.min(20, value));
+	}
+
+	private static String normalizeRefsConfigPath(String value) {
+		if (value == null) {
+			return "";
+		}
+		return value.trim();
 	}
 
 	@Override
