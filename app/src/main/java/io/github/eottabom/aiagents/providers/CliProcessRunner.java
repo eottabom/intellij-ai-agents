@@ -118,6 +118,8 @@ final class CliProcessRunner {
 		if (exitCode != 0) {
 			if (!stderr.isBlank()) {
 				safeChunk.accept(StreamChunk.error(stderr));
+			} else if (!output.isBlank()) {
+				safeChunk.accept(StreamChunk.error(output));
 			} else {
 				safeChunk.accept(StreamChunk.error(
 						provider.cliName + " " + subcommand + " exited with code " + exitCode));
@@ -329,7 +331,7 @@ final class CliProcessRunner {
 
 				var chunk = provider.parseLine(trimmed);
 				if (chunk == null) {
-					if (trimmed.startsWith("{") || state.sawStructuredOutput.get()) {
+					if (state.sawStructuredOutput.get()) {
 						continue;
 					}
 					var normalizedLine = line.stripTrailing();

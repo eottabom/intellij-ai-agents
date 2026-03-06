@@ -12,6 +12,8 @@ import java.awt.*;
  * Settings > Tools > AI Agents
  */
 public class AiAgentSettingsConfigurable implements Configurable {
+	private static final int TIMEOUT_STEP_SECONDS = 1;
+
 	private JTextField refsConfigPathField;
 	private JTextArea extraIgnoredDirsArea;
 	private JCheckBox skipPermissionsCheckBox;
@@ -105,13 +107,13 @@ public class AiAgentSettingsConfigurable implements Configurable {
 		constraints.gridy++;
 		var timeoutPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
 		timeoutPanel.add(new JLabel("Claude:"));
-		claudeTimeoutSpinner = new JSpinner(new SpinnerNumberModel(180, AiAgentSettings.MIN_TIMEOUT_SECONDS, AiAgentSettings.MAX_TIMEOUT_SECONDS, AiAgentSettings.MIN_TIMEOUT_SECONDS));
+		claudeTimeoutSpinner = new JSpinner(new SpinnerNumberModel(180, AiAgentSettings.MIN_TIMEOUT_SECONDS, AiAgentSettings.MAX_TIMEOUT_SECONDS, TIMEOUT_STEP_SECONDS));
 		timeoutPanel.add(claudeTimeoutSpinner);
 		timeoutPanel.add(new JLabel("Gemini:"));
-		geminiTimeoutSpinner = new JSpinner(new SpinnerNumberModel(60, AiAgentSettings.MIN_TIMEOUT_SECONDS, AiAgentSettings.MAX_TIMEOUT_SECONDS, AiAgentSettings.MIN_TIMEOUT_SECONDS));
+		geminiTimeoutSpinner = new JSpinner(new SpinnerNumberModel(60, AiAgentSettings.MIN_TIMEOUT_SECONDS, AiAgentSettings.MAX_TIMEOUT_SECONDS, TIMEOUT_STEP_SECONDS));
 		timeoutPanel.add(geminiTimeoutSpinner);
 		timeoutPanel.add(new JLabel("Codex:"));
-		codexTimeoutSpinner = new JSpinner(new SpinnerNumberModel(30, AiAgentSettings.MIN_TIMEOUT_SECONDS, AiAgentSettings.MAX_TIMEOUT_SECONDS, AiAgentSettings.MIN_TIMEOUT_SECONDS));
+		codexTimeoutSpinner = new JSpinner(new SpinnerNumberModel(30, AiAgentSettings.MIN_TIMEOUT_SECONDS, AiAgentSettings.MAX_TIMEOUT_SECONDS, TIMEOUT_STEP_SECONDS));
 		timeoutPanel.add(codexTimeoutSpinner);
 		formPanel.add(timeoutPanel, constraints);
 	}
