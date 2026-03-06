@@ -27,6 +27,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -37,12 +38,14 @@ public class AiAgentPanel implements Disposable {
 	private static final Logger logger = LoggerFactory.getLogger(AiAgentPanel.class);
 
 	private final JPanel container;
+	private final AtomicReference<List<String>> latestProviders;
 	private JBCefBrowser browser;
 	private JsBridge bridge;
 	private Path webviewTempDir;
 
 	public AiAgentPanel(Project project, List<String> installedProviders) {
 		container = new JPanel(new BorderLayout());
+		latestProviders = new AtomicReference<>(installedProviders);
 		if (!JBCefApp.isSupported()) {
 			container.add(new JLabel("JCEF is not supported in this IDE runtime."), BorderLayout.CENTER);
 			return;
@@ -67,7 +70,7 @@ public class AiAgentPanel implements Disposable {
 					return;
 				}
 				bridge.inject();
-				bridge.sendInstalledProviders(installedProviders);
+				bridge.sendInstalledProviders(latestProviders.get());
 				bridge.sendProjectRefs();
 			}
 		}, browser.getCefBrowser());
@@ -87,6 +90,7 @@ public class AiAgentPanel implements Disposable {
 	}
 
 	void updateInstalledProviders(List<String> providers) {
+		latestProviders.set(providers);
 		if (bridge != null) {
 			bridge.sendInstalledProviders(providers);
 		}

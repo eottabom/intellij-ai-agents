@@ -16,6 +16,9 @@ record BridgeMessage(
 	private static final Gson GSON = new Gson();
 
 	static BridgeMessage fromJson(String json) {
+		if (json == null || json.isBlank()) {
+			return new BridgeMessage(null, null, null, null);
+		}
 		try {
 			return GSON.fromJson(json, BridgeMessage.class);
 		} catch (JsonSyntaxException ex) {

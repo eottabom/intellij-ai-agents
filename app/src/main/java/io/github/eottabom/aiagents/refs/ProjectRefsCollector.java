@@ -62,7 +62,7 @@ public final class ProjectRefsCollector {
 		}
 		var ignoredDirs = buildIgnoredDirs(root);
 
-		int scanDepth = AiAgentSettings.getInstanceOrDefaults().getProjectRefsScanDepth();
+		int scanDepth = Math.max(1, AiAgentSettings.getInstanceOrDefaults().getProjectRefsScanDepth());
 		var array = new JsonArray();
 		try {
 			Files.walkFileTree(root, Set.of(), scanDepth, new SimpleFileVisitor<>() {

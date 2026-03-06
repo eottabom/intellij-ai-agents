@@ -137,7 +137,7 @@ public class AiAgentSettingsConfigurable implements Configurable {
 		if (isTimeoutsModified(settings)) {
 			return true;
 		}
-		return settings.getProjectRefsScanDepth() != (int) scanDepthSpinner.getValue();
+		return clampScanDepth(settings.getProjectRefsScanDepth()) != (int) scanDepthSpinner.getValue();
 	}
 
 	private boolean isRefsConfigModified(AiAgentSettings settings) {
@@ -197,11 +197,15 @@ public class AiAgentSettingsConfigurable implements Configurable {
 		claudeTimeoutSpinner.setValue(clamp(settings.getClaudeTimeoutSec()));
 		geminiTimeoutSpinner.setValue(clamp(settings.getGeminiTimeoutSec()));
 		codexTimeoutSpinner.setValue(clamp(settings.getCodexTimeoutSec()));
-		scanDepthSpinner.setValue(settings.getProjectRefsScanDepth());
+		scanDepthSpinner.setValue(clampScanDepth(settings.getProjectRefsScanDepth()));
 	}
 
 	private static int clamp(int value) {
 		return Math.max(AiAgentSettings.MIN_TIMEOUT_SECONDS, Math.min(AiAgentSettings.MAX_TIMEOUT_SECONDS, value));
+	}
+
+	private static int clampScanDepth(int value) {
+		return Math.max(1, Math.min(20, value));
 	}
 
 	@Override

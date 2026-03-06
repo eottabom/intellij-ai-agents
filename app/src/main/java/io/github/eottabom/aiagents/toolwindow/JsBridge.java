@@ -71,14 +71,15 @@ class JsBridge implements Disposable {
 				if (basePath == null) {
 					return;
 				}
-				var normalizedBasePath = basePath.endsWith("/") ? basePath : basePath + "/";
+				var normalizedBase = basePath.replace("\\", "/");
+				var normalizedBasePrefix = normalizedBase.endsWith("/") ? normalizedBase : normalizedBase + "/";
 				for (var event : events) {
 					var file = event.getFile();
 					if (file == null) {
 						continue;
 					}
-					var filePath = file.getPath();
-					if (filePath.equals(basePath) || filePath.startsWith(normalizedBasePath)) {
+					var filePath = file.getPath().replace("\\", "/");
+					if (filePath.equals(normalizedBase) || filePath.startsWith(normalizedBasePrefix)) {
 						invalidateProjectRefsCacheDebounced();
 						return;
 					}
