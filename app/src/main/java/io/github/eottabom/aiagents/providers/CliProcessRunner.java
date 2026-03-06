@@ -38,7 +38,14 @@ final class CliProcessRunner {
 				if (chunk.type() == ChunkType.ERROR || chunk.type() == ChunkType.DONE) {
 					terminated.set(true);
 				}
-				onChunk.accept(chunk);
+				try {
+					onChunk.accept(chunk);
+				} catch (RuntimeException ex) {
+					// Intentionally terminate stream delivery on callback failure so watchdog/cancel
+					// threads are not silently broken by an uncaught exception.
+					terminated.set(true);
+					logger.warn("Failed to deliver chunk type={}", chunk.type(), ex);
+				}
 			}
 		};
 	}
@@ -112,13 +119,16 @@ final class CliProcessRunner {
 			return;
 		}
 
+		// Intentionally preserve leading indentation for diagnostics while removing only
+		// trailing whitespace/newline artifacts from buffered output.
 		var output = outputBuf.toString().stripTrailing();
-		var stderr = state.stderrBuf.toString().stripTrailing();
+		var stderr = readStderrSnapshot(state).stripTrailing();
 
 		if (exitCode != 0) {
 			if (!stderr.isBlank()) {
 				safeChunk.accept(StreamChunk.error(stderr));
 			} else if (!output.isBlank()) {
+				// Intentional: some CLIs report actionable failure details on stdout only.
 				safeChunk.accept(StreamChunk.error(output));
 			} else {
 				safeChunk.accept(StreamChunk.error(
@@ -214,16 +224,19 @@ final class CliProcessRunner {
 					if (line.isBlank()) {
 						continue;
 					}
-					if (isNoiseLine(line)) {
+					if (isNoiseLine(line.stripLeading())) {
 						continue;
 					}
 					state.lastOutputAt.set(System.currentTimeMillis());
-					if (state.stderrBuf.length() < STDERR_BUFFER_LIMIT) {
-						var remaining = STDERR_BUFFER_LIMIT - state.stderrBuf.length();
-						if (line.length() + 1 <= remaining) {
-							state.stderrBuf.append(line).append('\n');
-						} else {
-							state.stderrBuf.append(line, 0, Math.min(line.length(), remaining));
+					// awaitExit uses a timed join; keep stderr buffer reads/writes synchronized.
+					synchronized (state.stderrBuf) {
+						if (state.stderrBuf.length() < STDERR_BUFFER_LIMIT) {
+							var remaining = STDERR_BUFFER_LIMIT - state.stderrBuf.length();
+							if (line.length() + 1 <= remaining) {
+								state.stderrBuf.append(line).append('\n');
+							} else {
+								state.stderrBuf.append(line, 0, Math.min(line.length(), remaining));
+							}
 						}
 					}
 				}
@@ -331,6 +344,9 @@ final class CliProcessRunner {
 
 				var chunk = parseLineSafely(provider, trimmed);
 				if (chunk == null) {
+					// Intentional fallback policy:
+					// - before any structured chunk is confirmed, preserve plaintext (including "{...").
+					// - after structured mode starts, ignore non-parsable lines to avoid mixed output.
 					if (state.sawStructuredOutput.get()) {
 						continue;
 					}
@@ -383,6 +399,7 @@ final class CliProcessRunner {
 	private static int awaitExit(Process process, Thread stderrThread, RunState state) {
 		try {
 			var code = process.waitFor();
+			// Timed join prevents deadlock if stream close is delayed.
 			stderrThread.join(200);
 			return code;
 		} catch (InterruptedException ex) {
@@ -398,6 +415,7 @@ final class CliProcessRunner {
 		try {
 			return provider.parseLine(line);
 		} catch (Exception ex) {
+			// Intentional: parser failures should degrade to plaintext fallback, not terminate run.
 			logger.debug("Ignoring unparsable structured line for {}: {}", provider.cliName, ex.getMessage());
 			return null;
 		}
@@ -410,7 +428,7 @@ final class CliProcessRunner {
 			RunState state,
 			Consumer<StreamChunk> onChunk
 	) {
-		var stderr = state.stderrBuf.toString().stripTrailing();
+		var stderr = readStderrSnapshot(state).stripTrailing();
 
 		if (exitCode != 0) {
 			if (!stderr.isBlank()) {
@@ -434,9 +452,18 @@ final class CliProcessRunner {
 			return workDir;
 		}
 		if (workDir != null) {
-			logger.warn("workDir does not exist, falling back to user.home: {}", workDir);
+			logger.warn("workDir does not exist, falling back to user.home");
+			logger.debug("invalid workDir={}", workDir);
 		}
 		return System.getProperty("user.home");
+	}
+
+	private static String readStderrSnapshot(RunState state) {
+		// Keep snapshot reads synchronized with drainStderr writes. This avoids races when
+		// stderrThread is still alive after timed join in awaitExit().
+		synchronized (state.stderrBuf) {
+			return state.stderrBuf.toString();
+		}
 	}
 
 	private static void joinQuietly(Thread thread) {
@@ -481,11 +508,10 @@ final class CliProcessRunner {
 		}
 	}
 
-	// On Windows, ProcessBuilder passes argv directly to CreateProcess without a shell,
-	// so no shell-injection risk exists and no escaping is needed.
 	private static List<String> wrapForShell(List<String> argv) {
 		if (OsUtils.isWindows()) {
-			return argv;
+			// Intentionally route via cmd.exe for .cmd/.bat compatibility on Windows.
+			return List.of("cmd.exe", "/d", "/s", "/c", joinForWindowsCmd(argv));
 		}
 
 		var shellCommand = new StringBuilder();
@@ -500,6 +526,24 @@ final class CliProcessRunner {
 			return List.of(bash.getAbsolutePath(), "-l", "-c", shellCommand.toString());
 		}
 		return List.of("/bin/sh", "-c", shellCommand.toString());
+	}
+
+	private static String joinForWindowsCmd(List<String> argv) {
+		var command = new StringBuilder();
+		for (int i = 0; i < argv.size(); i++) {
+			if (i > 0) {
+				command.append(' ');
+			}
+			command.append(quoteForWindowsCmd(argv.get(i)));
+		}
+		return command.toString();
+	}
+
+	private static String quoteForWindowsCmd(String argument) {
+		if (argument == null || argument.isEmpty()) {
+			return "\"\"";
+		}
+		return "\"" + argument.replace("\"", "\"\"") + "\"";
 	}
 
 	private static boolean isNoiseLine(String line) {
