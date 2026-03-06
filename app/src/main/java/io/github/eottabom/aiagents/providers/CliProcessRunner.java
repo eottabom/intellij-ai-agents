@@ -329,7 +329,7 @@ final class CliProcessRunner {
 					continue;
 				}
 
-				var chunk = provider.parseLine(trimmed);
+				var chunk = parseLineSafely(provider, trimmed);
 				if (chunk == null) {
 					if (state.sawStructuredOutput.get()) {
 						continue;
@@ -391,6 +391,15 @@ final class CliProcessRunner {
 			terminateProcess(process);
 			joinQuietly(stderrThread);
 			return -1;
+		}
+	}
+
+	private static StreamChunk parseLineSafely(AiProvider provider, String line) {
+		try {
+			return provider.parseLine(line);
+		} catch (Exception ex) {
+			logger.debug("Ignoring unparsable structured line for {}: {}", provider.cliName, ex.getMessage());
+			return null;
 		}
 	}
 
@@ -516,6 +525,6 @@ final class CliProcessRunner {
 		final AtomicBoolean sawOutput = new AtomicBoolean(false);
 		final AtomicBoolean sawStructuredOutput = new AtomicBoolean(false);
 		final AtomicLong lastOutputAt = new AtomicLong(System.currentTimeMillis());
-		final StringBuffer stderrBuf = new StringBuffer();
+		final StringBuilder stderrBuf = new StringBuilder();
 	}
 }
