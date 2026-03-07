@@ -5,6 +5,7 @@ import { useBridgeCallbacks } from '../hooks/useBridgeCallbacks'
 import MessageList from './MessageList'
 import InputBar from './InputBar'
 import AgentIcon, { getAgentMeta } from './AgentIcon'
+import { getModelDisplayName } from '../utils/modelUtils'
 
 export interface Message {
   id: number
@@ -213,11 +214,7 @@ export default function ChatPanel({ installedClis }: Props) {
       const targetLabel = parsed.target === 'all' ? '@all' : `@${parsed.target}`
       if (!planCmd.modeChanged) {
         if (parsed.target !== 'all') {
-          const modelId = selectedModelByCli[parsed.target]
-          const models = modelsByCli[parsed.target] ?? []
-          const modelDisplay = modelId
-            ? (models.find((m) => m.id === modelId)?.displayName ?? modelId)
-            : 'default'
+          const modelDisplay = getModelDisplayName(modelsByCli[parsed.target] ?? [], selectedModelByCli[parsed.target])
           setMessages((prev) => [
             ...prev,
             {
@@ -229,11 +226,7 @@ export default function ChatPanel({ installedClis }: Props) {
           ])
         } else {
           const lines = installedClis.map((cli) => {
-            const modelId = selectedModelByCli[cli]
-            const models = modelsByCli[cli] ?? []
-            const modelDisplay = modelId
-              ? (models.find((m) => m.id === modelId)?.displayName ?? modelId)
-              : 'default'
+            const modelDisplay = getModelDisplayName(modelsByCli[cli] ?? [], selectedModelByCli[cli])
             return `- **@${cli}**: ${modelDisplay}`
           })
           setMessages((prev) => [

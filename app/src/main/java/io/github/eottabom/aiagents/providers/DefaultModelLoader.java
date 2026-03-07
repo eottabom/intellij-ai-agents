@@ -56,9 +56,9 @@ final class DefaultModelLoader {
 				}
 				CACHE.put(providerName, Collections.unmodifiableList(models));
 			}
+			loaded = true;
 		} catch (Exception ex) {
 			logger.warn("기본 모델 목록 로드 실패", ex);
 		}
-		loaded = true;
 	}
 }

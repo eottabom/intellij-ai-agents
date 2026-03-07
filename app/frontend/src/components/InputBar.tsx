@@ -2,6 +2,7 @@ import { AiModel, ChatMode, CliName, ProjectRef } from '../bridge'
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useAutocomplete } from '../hooks/useAutocomplete'
 import AgentIcon, { getAgentMeta } from './AgentIcon'
+import { getModelDisplayName } from '../utils/modelUtils'
 
 interface Props {
   onSend: (prompt: string) => void
@@ -48,14 +49,6 @@ export default function InputBar({ onSend, onCancel, onTogglePlanMode, onAgentCh
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  const getActiveModelLabel = (cli: CliName): string => {
-    const selectedId = selectedModelByCli[cli]
-    if (!selectedId) return 'default'
-    const models = modelsByCli[cli] ?? []
-    const found = models.find((m) => m.id === selectedId)
-    return found ? found.displayName : selectedId
-  }
 
   const handleMenuKeys = <T,>(
     e: KeyboardEvent<HTMLTextAreaElement>,
@@ -177,7 +170,7 @@ export default function InputBar({ onSend, onCancel, onTogglePlanMode, onAgentCh
               className="agent-pill model-pill"
               onClick={() => setModelDropdownCli(modelDropdownCli === activeCli ? null : activeCli)}
             >
-              Model: {getActiveModelLabel(activeCli)}
+              Model: {getModelDisplayName(modelsByCli[activeCli] ?? [], selectedModelByCli[activeCli])}
             </button>
             {modelDropdownCli === activeCli && (
               <div className="model-dropdown" role="listbox" aria-label="Model selection">
