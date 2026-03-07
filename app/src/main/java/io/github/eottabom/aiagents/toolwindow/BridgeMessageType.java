@@ -9,6 +9,8 @@ enum BridgeMessageType {
 	CLEAR_SESSION,
 	CLEAR_ALL_SESSIONS,
 	GET_PROJECT_REFS,
+	GET_MODELS,
+	SET_MODEL,
 	UNKNOWN;
 
 	static BridgeMessageType fromString(String value) {
@@ -22,6 +24,8 @@ enum BridgeMessageType {
 			case "clearsession" -> CLEAR_SESSION;
 			case "clearallsessions" -> CLEAR_ALL_SESSIONS;
 			case "getprojectrefs" -> GET_PROJECT_REFS;
+			case "getmodels" -> GET_MODELS;
+			case "setmodel" -> SET_MODEL;
 			default -> UNKNOWN;
 		};
 	}

@@ -6,14 +6,17 @@
 export type CliName = 'claude' | 'gemini' | 'codex'
 export type ChatMode = 'normal' | 'plan'
 export interface ProjectRef { symbol: string; path: string; kind: 'class' | 'file' }
+export interface AiModel { id: string; displayName: string }
+export interface ModelsPayload { cli: CliName; models: AiModel[]; selected: string }
 
-export type BridgeMessageType = 'chat' | 'cancel' | 'getSession' | 'clearSession' | 'clearAllSessions' | 'getProjectRefs'
+export type BridgeMessageType = 'chat' | 'cancel' | 'getSession' | 'clearSession' | 'clearAllSessions' | 'getProjectRefs' | 'getModels' | 'setModel'
 
 interface BridgePayload {
   type: BridgeMessageType
   cli?: CliName
   prompt?: string
   mode?: ChatMode
+  model?: string
 }
 
 declare global {
@@ -27,6 +30,8 @@ declare global {
     __onSession?: (cli: CliName, sessionId: string) => void
     __onSessionCleared?: (cli: CliName) => void
     __onProjectRefs?: (refs: ProjectRef[]) => void
+    __onModels?: (payload: ModelsPayload) => void
+    __onModelChanged?: (cli: CliName, modelId: string) => void
   }
 }
 
@@ -62,4 +67,12 @@ export const bridge = {
   /** 프로젝트 참조 목록 조회 (# 자동완성용) */
   getProjectRefs: () =>
     send({ type: 'getProjectRefs' }),
+
+  /** 프로바이더별 모델 목록 조회 */
+  getModels: (cli: CliName) =>
+    send({ type: 'getModels', cli }),
+
+  /** 모델 변경 */
+  setModel: (cli: CliName, model: string) =>
+    send({ type: 'setModel', cli, model }),
 }

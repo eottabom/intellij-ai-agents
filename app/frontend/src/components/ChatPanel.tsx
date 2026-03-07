@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChatMode, CliName, ProjectRef, bridge } from '../bridge'
+import { AiModel, ChatMode, CliName, ProjectRef, bridge } from '../bridge'
 import { parseAgentCommand, parsePlanCommand, parseSessionCommand } from '../utils/commandParser'
 import { useBridgeCallbacks } from '../hooks/useBridgeCallbacks'
 import MessageList from './MessageList'
@@ -29,6 +29,8 @@ export default function ChatPanel({ installedClis }: Props) {
   const [activeCli, setActiveCli] = useState<CliName | null>(null)
   const [chatMode, setChatMode] = useState<ChatMode>('normal')
   const [projectRefs, setProjectRefs] = useState<ProjectRef[]>([])
+  const [modelsByCli, setModelsByCli] = useState<Partial<Record<CliName, AiModel[]>>>({})
+  const [selectedModelByCli, setSelectedModelByCli] = useState<Partial<Record<CliName, string>>>({})
   const msgIdRef = useRef(0)
   const pendingResponseCliRef = useRef<CliName | null>(null)
   const messagesRef = useRef<Message[]>([])
@@ -53,6 +55,12 @@ export default function ChatPanel({ installedClis }: Props) {
     }
   }, [installedClis, activeCli])
 
+  useEffect(() => {
+    installedClis.forEach((cli) => {
+      try { bridge.getModels(cli) } catch { /* bridge not ready */ }
+    })
+  }, [installedClis])
+
   const appendAssistant = (content: string, cli?: CliName, variant?: Message['variant']) => {
     setMessages((prev) => [...prev, { id: ++msgIdRef.current, role: 'assistant', content, cli, variant }])
   }
@@ -67,6 +75,8 @@ export default function ChatPanel({ installedClis }: Props) {
     setRunningClis,
     setProgressByCli,
     setProjectRefs,
+    setModelsByCli,
+    setSelectedModelByCli,
     appendAssistant,
   })
 
@@ -202,14 +212,40 @@ export default function ChatPanel({ installedClis }: Props) {
     if (!parsedPrompt) {
       const targetLabel = parsed.target === 'all' ? '@all' : `@${parsed.target}`
       if (!planCmd.modeChanged) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: ++msgIdRef.current,
-            role: 'assistant',
-            content: `Use \`${targetLabel} <message>\` to send a prompt.`,
-          },
-        ])
+        if (parsed.target !== 'all') {
+          const modelId = selectedModelByCli[parsed.target]
+          const models = modelsByCli[parsed.target] ?? []
+          const modelDisplay = modelId
+            ? (models.find((m) => m.id === modelId)?.displayName ?? modelId)
+            : 'default'
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: ++msgIdRef.current,
+              role: 'assistant',
+              variant: 'system',
+              content: `**${targetLabel}** — Model: **${modelDisplay}**`,
+            },
+          ])
+        } else {
+          const lines = installedClis.map((cli) => {
+            const modelId = selectedModelByCli[cli]
+            const models = modelsByCli[cli] ?? []
+            const modelDisplay = modelId
+              ? (models.find((m) => m.id === modelId)?.displayName ?? modelId)
+              : 'default'
+            return `- **@${cli}**: ${modelDisplay}`
+          })
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: ++msgIdRef.current,
+              role: 'assistant',
+              variant: 'system',
+              content: `**Agent Models**\n\n${lines.join('\n')}`,
+            },
+          ])
+        }
       }
       if (parsed.target !== 'all' && parsed.switched) setActiveCli(parsed.target)
       return
@@ -323,6 +359,27 @@ export default function ChatPanel({ installedClis }: Props) {
     }
   }
 
+  const handleAgentChange = (cli: CliName) => {
+    setActiveCli(cli)
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: ++msgIdRef.current,
+        role: 'assistant',
+        variant: 'system',
+        content: `Switched target to @${cli}`,
+      },
+    ])
+  }
+
+  const handleModelChange = (cli: CliName, modelId: string) => {
+    try {
+      bridge.setModel(cli, modelId)
+    } catch {
+      appendAssistant(`Failed to change model for @${cli}`, undefined, 'system')
+    }
+  }
+
   const handleTogglePlanMode = () => {
     const nextChatMode = chatModeRef.current === 'plan' ? 'normal' : 'plan'
     chatModeRef.current = nextChatMode
@@ -372,11 +429,15 @@ export default function ChatPanel({ installedClis }: Props) {
         onSend={handleSend}
         onCancel={handleCancel}
         onTogglePlanMode={handleTogglePlanMode}
+        onAgentChange={handleAgentChange}
+        onModelChange={handleModelChange}
         isLoading={isLoading}
         chatMode={chatMode}
         activeCli={activeCli}
         installedClis={installedClis}
         projectRefs={projectRefs}
+        modelsByCli={modelsByCli}
+        selectedModelByCli={selectedModelByCli}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
-import { CliName, ProjectRef, bridge } from '../bridge'
+import { AiModel, CliName, ModelsPayload, ProjectRef, bridge } from '../bridge'
 import type { Message } from '../components/ChatPanel'
 
 function findLastStreamingIndex(messages: Message[], cli?: CliName): number | undefined {
@@ -26,6 +26,8 @@ interface UseBridgeCallbacksParams {
   setRunningClis: Dispatch<SetStateAction<CliName[]>>
   setProgressByCli: Dispatch<SetStateAction<Partial<Record<CliName, string>>>>
   setProjectRefs: Dispatch<SetStateAction<ProjectRef[]>>
+  setModelsByCli: Dispatch<SetStateAction<Partial<Record<CliName, AiModel[]>>>>
+  setSelectedModelByCli: Dispatch<SetStateAction<Partial<Record<CliName, string>>>>
   appendAssistant: (content: string, cli?: CliName, variant?: Message['variant']) => void
 }
 
@@ -39,6 +41,8 @@ export function useBridgeCallbacks({
   setRunningClis,
   setProgressByCli,
   setProjectRefs,
+  setModelsByCli,
+  setSelectedModelByCli,
   appendAssistant,
 }: UseBridgeCallbacksParams) {
   const activeCliRef = useRef<CliName | null>(activeCli)
@@ -150,6 +154,8 @@ export function useBridgeCallbacks({
     const prevOnProjectRefs = window.__onProjectRefs
     const prevOnSession = window.__onSession
     const prevOnSessionCleared = window.__onSessionCleared
+    const prevOnModels = window.__onModels
+    const prevOnModelChanged = window.__onModelChanged
 
     window.__onChunk = ((arg1: CliName | string, arg2?: string) => {
       const cli = arg2 !== undefined ? (arg1 as CliName) : (pendingResponseCliRef.current ?? activeCliRef.current ?? undefined)
@@ -305,6 +311,18 @@ export function useBridgeCallbacks({
       }
     }) as typeof window.__onSessionCleared
 
+    window.__onModels = ((payload: ModelsPayload) => {
+      if (!payload || !payload.cli) return
+      setModelsByCli((prev) => ({ ...prev, [payload.cli]: payload.models ?? [] }))
+      if (payload.selected) {
+        setSelectedModelByCli((prev) => ({ ...prev, [payload.cli]: payload.selected }))
+      }
+    }) as typeof window.__onModels
+
+    window.__onModelChanged = ((cli: CliName, modelId: string) => {
+      setSelectedModelByCli((prev) => ({ ...prev, [cli]: modelId }))
+    }) as typeof window.__onModelChanged
+
     return () => {
       flushBufferedChunks()
       flushBufferedProgress()
@@ -315,8 +333,10 @@ export function useBridgeCallbacks({
       window.__onProjectRefs = prevOnProjectRefs
       window.__onSession = prevOnSession
       window.__onSessionCleared = prevOnSessionCleared
+      window.__onModels = prevOnModels
+      window.__onModelChanged = prevOnModelChanged
     }
-  }, [flushBufferedChunks, flushBufferedProgress, msgIdRef, scheduleChunkFlush, scheduleProgressFlush, setMessages, setProgressByCli, setProjectRefs, setRunningClis])
+  }, [flushBufferedChunks, flushBufferedProgress, msgIdRef, scheduleChunkFlush, scheduleProgressFlush, setMessages, setModelsByCli, setProgressByCli, setProjectRefs, setRunningClis, setSelectedModelByCli])
 
   useEffect(() => {
     const requestProjectRefs = () => {

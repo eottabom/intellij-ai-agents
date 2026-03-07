@@ -1,5 +1,5 @@
-import { ChatMode, CliName, ProjectRef } from '../bridge'
-import { KeyboardEvent, useRef, useState } from 'react'
+import { AiModel, ChatMode, CliName, ProjectRef } from '../bridge'
+import { KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { useAutocomplete } from '../hooks/useAutocomplete'
 import AgentIcon, { getAgentMeta } from './AgentIcon'
 
@@ -7,15 +7,23 @@ interface Props {
   onSend: (prompt: string) => void
   onCancel: () => void
   onTogglePlanMode: () => void
+  onAgentChange: (cli: CliName) => void
+  onModelChange: (cli: CliName, modelId: string) => void
   isLoading: boolean
   chatMode: ChatMode
   activeCli: CliName | null
   installedClis: CliName[]
   projectRefs: ProjectRef[]
+  modelsByCli: Partial<Record<CliName, AiModel[]>>
+  selectedModelByCli: Partial<Record<CliName, string>>
 }
 
-export default function InputBar({ onSend, onCancel, onTogglePlanMode, isLoading, chatMode, activeCli, installedClis, projectRefs }: Props) {
+export default function InputBar({ onSend, onCancel, onTogglePlanMode, onAgentChange, onModelChange, isLoading, chatMode, activeCli, installedClis, projectRefs, modelsByCli, selectedModelByCli }: Props) {
   const [text, setText] = useState('')
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false)
+  const [modelDropdownCli, setModelDropdownCli] = useState<CliName | null>(null)
+  const agentDropdownRef = useRef<HTMLDivElement>(null)
+  const modelDropdownRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const {
@@ -27,6 +35,27 @@ export default function InputBar({ onSend, onCancel, onTogglePlanMode, isLoading
     setMentionIndex, setSlashIndex, setHashIndex,
     setMention, setSlash, setHash,
   } = useAutocomplete(installedClis, projectRefs)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (agentDropdownRef.current && !agentDropdownRef.current.contains(e.target as Node)) {
+        setShowAgentDropdown(false)
+      }
+      if (modelDropdownRef.current && !modelDropdownRef.current.contains(e.target as Node)) {
+        setModelDropdownCli(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const getActiveModelLabel = (cli: CliName): string => {
+    const selectedId = selectedModelByCli[cli]
+    if (!selectedId) return 'default'
+    const models = modelsByCli[cli] ?? []
+    const found = models.find((m) => m.id === selectedId)
+    return found ? found.displayName : selectedId
+  }
 
   const handleMenuKeys = <T,>(
     e: KeyboardEvent<HTMLTextAreaElement>,
@@ -106,7 +135,86 @@ export default function InputBar({ onSend, onCancel, onTogglePlanMode, isLoading
   return (
     <div className="input-bar">
       <div className="input-status">
-        <span className="agent-pill">Current: @{activeCli ?? 'none'}</span>
+        <div className="agent-selector-wrapper" ref={agentDropdownRef}>
+          <button
+            type="button"
+            className="agent-pill agent-selector-pill"
+            onClick={() => setShowAgentDropdown(!showAgentDropdown)}
+          >
+            {activeCli && <AgentIcon cli={activeCli} size={12} />}
+            <span>@{activeCli ?? 'none'}</span>
+          </button>
+          {showAgentDropdown && installedClis.length > 0 && (
+            <div className="agent-dropdown" role="listbox" aria-label="Agent selection">
+              {installedClis.map((cli) => {
+                const isActive = cli === activeCli
+                const meta = getAgentMeta(cli)
+                return (
+                  <button
+                    key={cli}
+                    type="button"
+                    className={`agent-dropdown-item ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      onAgentChange(cli)
+                      setShowAgentDropdown(false)
+                    }}
+                    role="option"
+                    aria-selected={isActive}
+                  >
+                    <AgentIcon cli={cli} size={14} />
+                    <span className="agent-dropdown-label">@{cli}</span>
+                    <span className="agent-dropdown-meta">{meta.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        {activeCli && (
+          <div className="model-selector-wrapper" ref={modelDropdownRef}>
+            <button
+              type="button"
+              className="agent-pill model-pill"
+              onClick={() => setModelDropdownCli(modelDropdownCli === activeCli ? null : activeCli)}
+            >
+              Model: {getActiveModelLabel(activeCli)}
+            </button>
+            {modelDropdownCli === activeCli && (
+              <div className="model-dropdown" role="listbox" aria-label="Model selection">
+                <button
+                  type="button"
+                  className={`model-dropdown-item ${!selectedModelByCli[activeCli] ? 'active' : ''}`}
+                  onClick={() => {
+                    onModelChange(activeCli, '')
+                    setModelDropdownCli(null)
+                  }}
+                  role="option"
+                  aria-selected={!selectedModelByCli[activeCli]}
+                >
+                  (default)
+                </button>
+                {(modelsByCli[activeCli] ?? []).map((model) => {
+                  const isSelected = selectedModelByCli[activeCli] === model.id
+                  return (
+                    <button
+                      key={model.id}
+                      type="button"
+                      className={`model-dropdown-item ${isSelected ? 'active' : ''}`}
+                      onClick={() => {
+                        onModelChange(activeCli, model.id)
+                        setModelDropdownCli(null)
+                      }}
+                      role="option"
+                      aria-selected={isSelected}
+                    >
+                      {model.displayName}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <button
           type="button"
           className={`agent-pill plan-toggle ${chatMode === 'plan' ? 'active' : ''}`}

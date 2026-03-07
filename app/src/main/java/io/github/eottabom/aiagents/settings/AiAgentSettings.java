@@ -8,9 +8,14 @@ import com.intellij.openapi.components.Storage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import io.github.eottabom.aiagents.providers.AiModel;
 import io.github.eottabom.aiagents.refs.DirPathNormalizer;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -31,6 +36,8 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 		public int geminiTimeoutSec = 60;
 		public int codexTimeoutSec = 30;
 		public int projectRefsScanDepth = 6;
+		public Map<String, String> selectedModels = new LinkedHashMap<>();
+		public Map<String, String> customModels = new LinkedHashMap<>();
 	}
 
 	private State state = new State();
@@ -164,5 +171,84 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 
 	public void setProjectRefsScanDepth(int depth) {
 		state.projectRefsScanDepth = Math.max(1, Math.min(MAX_SCAN_DEPTH, depth));
+	}
+
+	/**
+	 * 프로바이더별 선택된 모델 ID 반환 (미설정 시 null)
+	 */
+	public String getSelectedModel(String providerName) {
+		if (providerName == null) {
+			return null;
+		}
+		var modelId = state.selectedModels.get(providerName);
+		if (modelId == null || modelId.isBlank()) {
+			return null;
+		}
+		return modelId;
+	}
+
+	public void setSelectedModel(String providerName, String modelId) {
+		if (providerName == null) {
+			return;
+		}
+		if (modelId == null || modelId.isBlank()) {
+			state.selectedModels.remove(providerName);
+		} else {
+			state.selectedModels.put(providerName, modelId.trim());
+		}
+	}
+
+	/**
+	 * 프로바이더별 사용자 커스텀 모델 목록 반환
+	 * 저장 형식: "modelId:displayName,modelId:displayName,..."
+	 */
+	public List<AiModel> getCustomModels(String providerName) {
+		if (providerName == null) {
+			return List.of();
+		}
+		var raw = state.customModels.get(providerName);
+		if (raw == null || raw.isBlank()) {
+			return List.of();
+		}
+		return parseCustomModels(raw);
+	}
+
+	public String getCustomModelsRaw(String providerName) {
+		if (providerName == null) {
+			return "";
+		}
+		return Objects.requireNonNullElse(state.customModels.get(providerName), "");
+	}
+
+	public void setCustomModelsRaw(String providerName, String raw) {
+		if (providerName == null) {
+			return;
+		}
+		if (raw == null || raw.isBlank()) {
+			state.customModels.remove(providerName);
+		} else {
+			state.customModels.put(providerName, raw.trim());
+		}
+	}
+
+	private static List<AiModel> parseCustomModels(String raw) {
+		var models = new ArrayList<AiModel>();
+		for (String entry : raw.split("[,\\n\\r]+")) {
+			var trimmed = entry.trim();
+			if (trimmed.isBlank()) {
+				continue;
+			}
+			var colonIndex = trimmed.indexOf(':');
+			if (colonIndex > 0 && colonIndex < trimmed.length() - 1) {
+				var id = trimmed.substring(0, colonIndex).trim();
+				var displayName = trimmed.substring(colonIndex + 1).trim();
+				if (!id.isBlank() && !displayName.isBlank()) {
+					models.add(new AiModel(id, displayName));
+				}
+			} else {
+				models.add(new AiModel(trimmed, trimmed));
+			}
+		}
+		return models;
 	}
 }

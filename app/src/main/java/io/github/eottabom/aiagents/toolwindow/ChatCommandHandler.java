@@ -1,7 +1,9 @@
 package io.github.eottabom.aiagents.toolwindow;
 
+import io.github.eottabom.aiagents.providers.AiModel;
 import io.github.eottabom.aiagents.providers.AiProvider;
 import io.github.eottabom.aiagents.providers.StreamChunk;
+import io.github.eottabom.aiagents.settings.AiAgentSettings;
 
 import java.util.Locale;
 import java.util.Map;
@@ -50,6 +52,10 @@ class ChatCommandHandler {
 			dispatchDoctor(command.providerName(), workDir);
 			return;
 		}
+		if (command.isModelCommand()) {
+			handleModelCommand(command);
+			return;
+		}
 		dispatchChat(command, msg.mode(), workDir);
 	}
 
@@ -88,6 +94,42 @@ class ChatCommandHandler {
 			return wrapAsNormal(userPrompt);
 		}
 		return userPrompt;
+	}
+
+	private void handleModelCommand(ResolvedCommand command) {
+		var providerName = command.providerName();
+		var provider = AiProvider.fromName(providerName).orElse(null);
+		if (provider == null) {
+			notifier.sendError(providerName, "Unknown provider: " + providerName);
+			return;
+		}
+		var modelArg = command.modelArgument();
+		if (modelArg == null || modelArg.isBlank()) {
+			var models = provider.getAllModels();
+			var settings = AiAgentSettings.getInstanceOrDefaults();
+			var currentModel = settings.getSelectedModel(providerName);
+			var sb = new StringBuilder();
+			sb.append("**").append(providerName).append(" models:**\n");
+			for (AiModel model : models) {
+				var marker = model.id().equals(currentModel) ? " **(current)**" : "";
+				sb.append("- ").append(model.displayName()).append(" (`").append(model.id()).append("`)").append(marker).append("\n");
+			}
+			if (currentModel == null) {
+				sb.append("\n(default model selected)");
+			}
+			notifier.sendChunk(providerName, sb.toString());
+			notifier.sendDone(providerName);
+		} else {
+			var settings = AiAgentSettings.getInstance();
+			if (settings == null) {
+				notifier.sendError(providerName, "Settings not available.");
+				return;
+			}
+			settings.setSelectedModel(providerName, modelArg);
+			notifier.sendChunk(providerName, providerName + " model set to: `" + modelArg + "`");
+			notifier.sendModelChanged(providerName, modelArg);
+			notifier.sendDone(providerName);
+		}
 	}
 
 	void dispatchDoctor(String providerName, String workDir) {
@@ -318,7 +360,27 @@ class ChatCommandHandler {
 
 	private record ResolvedCommand(String providerName, String prompt) {
 		boolean isDoctor() {
-			return "/doctor".equals(prompt != null ? prompt.trim() : "");
+			return "/doctor".equals(trimmedPrompt());
+		}
+
+		boolean isModelCommand() {
+			var p = trimmedPrompt();
+			return "/model".equals(p) || p.startsWith("/model ");
+		}
+
+		String modelArgument() {
+			var p = trimmedPrompt();
+			if ("/model".equals(p)) {
+				return null;
+			}
+			if (p.startsWith("/model ")) {
+				return p.substring("/model ".length()).trim();
+			}
+			return null;
+		}
+
+		private String trimmedPrompt() {
+			return prompt != null ? prompt.trim() : "";
 		}
 	}
 
