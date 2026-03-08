@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import io.github.eottabom.aiagents.providers.AiModel;
 import io.github.eottabom.aiagents.refs.DirPathNormalizer;
+import io.github.eottabom.aiagents.refs.RefsDefaultsLoader;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -29,6 +30,8 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 	public static final class State {
 		public String refsConfigPath = ".aiagents/refs-config.json";
 		public String extraIgnoredDirs = "";
+		public String refExtensions = "";
+		public String classExtensions = "";
 		public boolean skipPermissions = false;
 		public boolean bypassApprovals = false;
 		public boolean geminiYoloMode = false;
@@ -92,6 +95,49 @@ public final class AiAgentSettings implements PersistentStateComponent<AiAgentSe
 			return;
 		}
 		state.extraIgnoredDirs = raw;
+	}
+
+	public String getRefExtensionsRaw() {
+		var raw = state.refExtensions;
+		if (raw == null || raw.isBlank()) {
+			return RefsDefaultsLoader.getRefExtensionsAsString();
+		}
+		return raw;
+	}
+
+	public void setRefExtensionsRaw(String raw) {
+		state.refExtensions = (raw == null) ? "" : raw.trim();
+	}
+
+	public Set<String> getRefExtensions() {
+		return parseExtensions(getRefExtensionsRaw());
+	}
+
+	public String getClassExtensionsRaw() {
+		var raw = state.classExtensions;
+		if (raw == null || raw.isBlank()) {
+			return RefsDefaultsLoader.getClassExtensionsAsString();
+		}
+		return raw;
+	}
+
+	public void setClassExtensionsRaw(String raw) {
+		state.classExtensions = (raw == null) ? "" : raw.trim();
+	}
+
+	public Set<String> getClassExtensions() {
+		return parseExtensions(getClassExtensionsRaw());
+	}
+
+	private static Set<String> parseExtensions(String raw) {
+		var result = new LinkedHashSet<String>();
+		for (String token : raw.split("[,\\s]+")) {
+			var trimmed = token.trim().toLowerCase(java.util.Locale.ROOT);
+			if (!trimmed.isBlank()) {
+				result.add(trimmed);
+			}
+		}
+		return result;
 	}
 
 	public Set<String> getExtraIgnoredDirs() {

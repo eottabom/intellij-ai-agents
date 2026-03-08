@@ -1,6 +1,8 @@
 package io.github.eottabom.aiagents.toolwindow;
 
 import com.intellij.openapi.Disposable;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.options.ShowSettingsUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.openapi.vfs.newvfs.BulkFileListener;
@@ -110,6 +112,7 @@ class JsBridge implements Disposable {
 				case GET_PROJECT_REFS   -> sendProjectRefs();
 				case GET_MODELS         -> handleGetModels(bridgeMessage);
 				case SET_MODEL          -> handleSetModel(bridgeMessage);
+				case OPEN_SETTINGS      -> openSettings();
 				case UNKNOWN            -> notifier.sendError(null, "Unknown message type: " + bridgeMessage.type());
 			}
 		} catch (Exception ex) {
@@ -187,6 +190,13 @@ class JsBridge implements Disposable {
 		var modelId = msg.model();
 		settings.setSelectedModel(providerName, modelId);
 		notifier.sendModelChanged(providerName, modelId);
+	}
+
+	private void openSettings() {
+		ApplicationManager.getApplication().invokeLater(() ->
+				ShowSettingsUtil.getInstance()
+						.showSettingsDialog(project, "AI Agents")
+		);
 	}
 
 	private String resolveProvider(String cli) {

@@ -28,24 +28,6 @@ public final class ProjectRefsCollector {
 	private static final Gson GSON = new Gson();
 	private static final int MAX_REFS = 800;
 	private static final Pattern HASHED_FILENAME_PATTERN = Pattern.compile(".*-[0-9a-f]{6,}\\.[A-Za-z0-9]+$", Pattern.CASE_INSENSITIVE);
-	private static final Set<String> DEFAULT_IGNORED_DIRS = Set.of(
-			".git",
-			".idea",
-			".gradle",
-			".intellijplatform",
-			"build",
-			"dist",
-			"node_modules",
-			"target",
-			"out"
-	);
-	private static final Set<String> REF_EXTENSIONS = Set.of(
-			"java", "kt", "kts",
-			"ts", "tsx", "js", "jsx",
-			"json", "md", "xml",
-			"yml", "yaml", "properties"
-	);
-	private static final Set<String> CLASS_EXTENSIONS = Set.of("java", "kt", "kts");
 
 	private ProjectRefsCollector() {
 	}
@@ -60,9 +42,14 @@ public final class ProjectRefsCollector {
 		if (!Files.isDirectory(root)) {
 			return null;
 		}
-		var ignoredDirs = buildIgnoredDirs(root);
 
-		int scanDepth = Math.max(1, AiAgentSettings.getInstanceOrDefaults().getProjectRefsScanDepth());
+		var settings = AiAgentSettings.getInstanceOrDefaults();
+		var ignoredDirs = buildIgnoredDirs(root, settings);
+		var finalRefExtensions = settings.getRefExtensions();
+		var finalClassExtensions = settings.getClassExtensions();
+		applyConfigFileExtensions(root, settings.getRefsConfigPath(), finalRefExtensions, finalClassExtensions);
+
+		int scanDepth = Math.max(1, settings.getProjectRefsScanDepth());
 		var array = new JsonArray();
 		try {
 			Files.walkFileTree(root, Set.of(), scanDepth, new SimpleFileVisitor<>() {
@@ -84,11 +71,11 @@ public final class ProjectRefsCollector {
 					if (isIgnored(root, file, ignoredDirs)) {
 						return FileVisitResult.CONTINUE;
 					}
-					if (!isRefCandidate(file)) {
+					if (!isRefCandidate(file, finalRefExtensions)) {
 						return FileVisitResult.CONTINUE;
 					}
 
-					array.add(toRefJson(root, file));
+					array.add(toRefJson(root, file, finalClassExtensions));
 					emittedRefsCount++;
 					if (emittedRefsCount >= MAX_REFS) {
 						return FileVisitResult.TERMINATE;
@@ -97,8 +84,8 @@ public final class ProjectRefsCollector {
 				}
 			});
 			return GSON.toJson(array);
-		} catch (IOException exception) {
-			logger.warn("Failed to collect project refs", exception);
+		} catch (IOException ex) {
+			logger.warn("Failed to collect project refs", ex);
 			return null;
 		}
 	}
@@ -130,10 +117,10 @@ public final class ProjectRefsCollector {
 		return false;
 	}
 
-	private static boolean isRefCandidate(Path path) {
+	private static boolean isRefCandidate(Path path, Set<String> refExtensions) {
 		var fileName = path.getFileName().toString();
 		var ext = extensionOf(fileName);
-		if (!REF_EXTENSIONS.contains(ext)) {
+		if (!refExtensions.contains(ext)) {
 			return false;
 		}
 		if (fileName.endsWith(".min.js")) {
@@ -142,7 +129,7 @@ public final class ProjectRefsCollector {
 		return !HASHED_FILENAME_PATTERN.matcher(fileName).matches();
 	}
 
-	private static JsonObject toRefJson(Path root, Path file) {
+	private static JsonObject toRefJson(Path root, Path file, Set<String> classExtensions) {
 		var rel = root.relativize(file);
 		var relPath = rel.toString().replace("\\", "/");
 		var fileName = file.getFileName().toString();
@@ -152,7 +139,7 @@ public final class ProjectRefsCollector {
 			symbol = fileName.substring(0, dot);
 		}
 		var ext = extensionOf(fileName);
-		var kind = CLASS_EXTENSIONS.contains(ext) ? "class" : "file";
+		var kind = classExtensions.contains(ext) ? "class" : "file";
 
 		var obj = new JsonObject();
 		obj.addProperty("symbol", symbol);
@@ -169,36 +156,62 @@ public final class ProjectRefsCollector {
 		return fileName.substring(dot + 1).toLowerCase(Locale.ROOT);
 	}
 
-	private static Set<String> buildIgnoredDirs(Path root) {
-		var merged = new LinkedHashSet<>(DEFAULT_IGNORED_DIRS);
-		var settings = AiAgentSettings.getInstanceOrDefaults();
+	private static Set<String> buildIgnoredDirs(Path root, AiAgentSettings settings) {
+		var merged = new LinkedHashSet<>(RefsDefaultsLoader.getIgnoreDirs());
 		merged.addAll(settings.getExtraIgnoredDirs());
 		merged.addAll(loadIgnoredDirsFromConfig(root, settings.getRefsConfigPath()));
 		return merged;
 	}
 
-	private static Set<String> loadIgnoredDirsFromConfig(Path root, String relativeConfigPath) {
-		var dirs = new LinkedHashSet<String>();
+	/**
+	 * refs-config.json 에서 refExtensions / classExtensions 배열이 있으면
+	 * Settings 값을 대체(프로젝트별 오버라이드).
+	 */
+	private static void applyConfigFileExtensions(
+			Path root, String relativeConfigPath,
+			Set<String> refExtensions, Set<String> classExtensions) {
+		var obj = readConfigJson(root, relativeConfigPath);
+		if (obj == null) {
+			return;
+		}
+		var refArray = readStringArray(obj, "refExtensions");
+		if (!refArray.isEmpty()) {
+			refExtensions.clear();
+			refExtensions.addAll(refArray);
+		}
+		var classArray = readStringArray(obj, "classExtensions");
+		if (!classArray.isEmpty()) {
+			classExtensions.clear();
+			classExtensions.addAll(classArray);
+		}
+	}
+
+	private static JsonObject readConfigJson(Path root, String relativeConfigPath) {
 		if (relativeConfigPath == null || relativeConfigPath.isBlank()) {
-			return dirs;
+			return null;
 		}
 		var cfg = root.resolve(relativeConfigPath).normalize();
 		if (!cfg.startsWith(root) || !Files.isRegularFile(cfg)) {
-			return dirs;
+			return null;
 		}
 		try {
 			var json = Files.readString(cfg, StandardCharsets.UTF_8);
-			var obj = GSON.fromJson(json, JsonObject.class);
-			if (obj == null) {
-				return dirs;
-			}
-			readDirArray(obj, "ignoreDirs", dirs);
-			readDirArray(obj, "excludeDirs", dirs);
-			return dirs;
+			return GSON.fromJson(json, JsonObject.class);
 		} catch (Exception exception) {
 			logger.warn("Failed to load refs config from {}", cfg, exception);
+			return null;
+		}
+	}
+
+	private static Set<String> loadIgnoredDirsFromConfig(Path root, String relativeConfigPath) {
+		var dirs = new LinkedHashSet<String>();
+		var obj = readConfigJson(root, relativeConfigPath);
+		if (obj == null) {
 			return dirs;
 		}
+		readDirArray(obj, "ignoreDirs", dirs);
+		readDirArray(obj, "excludeDirs", dirs);
+		return dirs;
 	}
 
 	private static void readDirArray(JsonObject obj, String field, Set<String> out) {
@@ -215,5 +228,21 @@ public final class ProjectRefsCollector {
 				out.add(normalized);
 			}
 		}
+	}
+
+	private static Set<String> readStringArray(JsonObject obj, String field) {
+		var result = new LinkedHashSet<String>();
+		if (!obj.has(field) || !obj.get(field).isJsonArray()) {
+			return result;
+		}
+		for (JsonElement el : obj.getAsJsonArray(field)) {
+			if (el.isJsonPrimitive()) {
+				var value = el.getAsString().trim().toLowerCase(Locale.ROOT);
+				if (!value.isBlank()) {
+					result.add(value);
+				}
+			}
+		}
+		return result;
 	}
 }

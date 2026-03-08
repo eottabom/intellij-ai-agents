@@ -393,7 +393,18 @@ export default function ChatPanel({ installedClis }: Props) {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <div className="chat-header-title">CLI Agents</div>
+        <div className="chat-header-title">
+          <span>CLI Agents</span>
+          <button
+            type="button"
+            className="settings-btn"
+            onClick={() => { try { bridge.openSettings() } catch { /* bridge not ready */ } }}
+            title="Open Settings"
+            aria-label="Open Settings"
+          >
+            Settings
+          </button>
+        </div>
         <div className="chat-header-meta">
           <span className="agent-pill active">Current: @{activeCli ?? 'none'}</span>
           <span className={`agent-pill ${chatMode === 'plan' ? 'active' : ''}`}>Plan: {chatMode === 'plan' ? 'ON' : 'OFF'}</span>
