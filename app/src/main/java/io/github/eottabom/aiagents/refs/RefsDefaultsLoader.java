@@ -1,6 +1,7 @@
 package io.github.eottabom.aiagents.refs;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,10 +80,11 @@ public final class RefsDefaultsLoader {
 			loaded = true;
 		} catch (Exception ex) {
 			logger.warn("refs-defaults 로드 실패", ex);
+			loaded = true;
 		}
 	}
 
-	private static Set<String> readStringSet(com.google.gson.JsonObject obj, String field, boolean lowercase) {
+	public static Set<String> readStringSet(JsonObject obj, String field, boolean lowercase) {
 		var result = new LinkedHashSet<String>();
 		if (!obj.has(field) || !obj.get(field).isJsonArray()) {
 			return result;

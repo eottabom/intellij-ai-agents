@@ -174,12 +174,12 @@ public final class ProjectRefsCollector {
 		if (obj == null) {
 			return;
 		}
-		var refArray = readStringArray(obj, "refExtensions");
+		var refArray = RefsDefaultsLoader.readStringSet(obj, "refExtensions", true);
 		if (!refArray.isEmpty()) {
 			refExtensions.clear();
 			refExtensions.addAll(refArray);
 		}
-		var classArray = readStringArray(obj, "classExtensions");
+		var classArray = RefsDefaultsLoader.readStringSet(obj, "classExtensions", true);
 		if (!classArray.isEmpty()) {
 			classExtensions.clear();
 			classExtensions.addAll(classArray);
@@ -228,21 +228,5 @@ public final class ProjectRefsCollector {
 				out.add(normalized);
 			}
 		}
-	}
-
-	private static Set<String> readStringArray(JsonObject obj, String field) {
-		var result = new LinkedHashSet<String>();
-		if (!obj.has(field) || !obj.get(field).isJsonArray()) {
-			return result;
-		}
-		for (JsonElement el : obj.getAsJsonArray(field)) {
-			if (el.isJsonPrimitive()) {
-				var value = el.getAsString().trim().toLowerCase(Locale.ROOT);
-				if (!value.isBlank()) {
-					result.add(value);
-				}
-			}
-		}
-		return result;
 	}
 }
