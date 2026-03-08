@@ -1,0 +1,22 @@
+{
+  "claude": [
+    { "id": "claude-sonnet-4-6", "displayName": "Sonnet 4.6" },
+    { "id": "claude-opus-4-6", "displayName": "Opus 4.6" },
+    { "id": "claude-haiku-4-5", "displayName": "Haiku 4.5" }
+  ],
+  "gemini": [
+    { "id": "gemini-3-pro-preview", "displayName": "Gemini 3 Pro Preview" },
+    { "id": "gemini-3-flash-preview", "displayName": "Gemini 3 Flash Preview" },
+    { "id": "gemini-2.5-pro", "displayName": "Gemini 2.5 Pro" },
+    { "id": "gemini-2.5-flash", "displayName": "Gemini 2.5 Flash" },
+    { "id": "gemini-2.5-flash-lite", "displayName": "Gemini 2.5 Flash Lite" }
+  ],
+  "codex": [
+    { "id": "gpt-5.3-codex", "displayName": "Gpt 5.3 Codex" },
+    { "id": "gpt-5.4", "displayName": "Gpt 5.4" },
+    { "id": "gpt-5.2-codex", "displayName": "Gpt 5.2 Codex" },
+    { "id": "gpt-5.1-codex-max", "displayName": "Gpt 5.1 Codex Max" },
+    { "id": "gpt-5.2", "displayName": "Gpt 5.2" },
+    { "id": "gpt-5.1-codex-mini", "displayName": "Gpt 5.1 Codex Mini" }
+  ]
+}

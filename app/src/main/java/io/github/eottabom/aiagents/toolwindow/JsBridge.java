@@ -11,6 +11,7 @@ import com.intellij.ui.jcef.JBCefBrowserBase;
 import com.intellij.ui.jcef.JBCefJSQuery;
 import io.github.eottabom.aiagents.providers.AiProvider;
 import io.github.eottabom.aiagents.refs.ProjectRefsCollector;
+import io.github.eottabom.aiagents.settings.AiAgentSettings;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,6 +108,8 @@ class JsBridge implements Disposable {
 				case CLEAR_SESSION      -> handleClearSession(bridgeMessage);
 				case CLEAR_ALL_SESSIONS -> sessionStore.clearAll();
 				case GET_PROJECT_REFS   -> sendProjectRefs();
+				case GET_MODELS         -> handleGetModels(bridgeMessage);
+				case SET_MODEL          -> handleSetModel(bridgeMessage);
 				case UNKNOWN            -> notifier.sendError(null, "Unknown message type: " + bridgeMessage.type());
 			}
 		} catch (Exception ex) {
@@ -154,6 +157,36 @@ class JsBridge implements Disposable {
 		}
 		sessionStore.clear(provider);
 		notifier.sendSessionCleared(providerName);
+	}
+
+	private void handleGetModels(BridgeMessage msg) {
+		var providerName = resolveProvider(msg.cli());
+		if (providerName == null) {
+			return;
+		}
+		var provider = AiProvider.fromName(providerName).orElse(null);
+		if (provider == null) {
+			return;
+		}
+		var settings = AiAgentSettings.getInstanceOrDefaults();
+		var models = provider.getAllModels();
+		var selectedModelId = settings.getSelectedModel(providerName);
+		notifier.sendModels(providerName, models, selectedModelId);
+	}
+
+	private void handleSetModel(BridgeMessage msg) {
+		var providerName = resolveProvider(msg.cli());
+		if (providerName == null) {
+			return;
+		}
+		var settings = AiAgentSettings.getInstance();
+		if (settings == null) {
+			notifier.sendError(null, "Settings not available.");
+			return;
+		}
+		var modelId = msg.model();
+		settings.setSelectedModel(providerName, modelId);
+		notifier.sendModelChanged(providerName, modelId);
 	}
 
 	private String resolveProvider(String cli) {

@@ -2,6 +2,7 @@ package io.github.eottabom.aiagents.providers;
 
 import io.github.eottabom.aiagents.settings.AiAgentSettings;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -13,8 +14,9 @@ public enum AiProvider {
 		@Override
 		protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
 			var settings = AiAgentSettings.getInstanceOrDefaults();
-			boolean skip = settings.isSkipPermissions();
-			return CliArgsBuilder.buildClaudeArgs(prompt, sessionId, workDir, skip);
+			var isSkip = settings.isSkipPermissions();
+			var model = settings.getSelectedModel(cliName);
+			return CliArgsBuilder.buildClaudeArgs(prompt, sessionId, workDir, isSkip, model);
 		}
 
 		@Override
@@ -33,8 +35,9 @@ public enum AiProvider {
 		@Override
 		protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
 			var settings = AiAgentSettings.getInstanceOrDefaults();
-			boolean yolo = settings.isGeminiYoloMode();
-			return CliArgsBuilder.buildGeminiArgs(prompt, sessionId, yolo);
+			var isYolo = settings.isGeminiYoloMode();
+			var model = settings.getSelectedModel(cliName);
+			return CliArgsBuilder.buildGeminiArgs(prompt, sessionId, isYolo, model);
 		}
 
 		@Override
@@ -53,8 +56,9 @@ public enum AiProvider {
 		@Override
 		protected List<String> buildRunArgs(String prompt, String sessionId, String workDir) {
 			var settings = AiAgentSettings.getInstanceOrDefaults();
-			boolean bypass = settings.isBypassApprovals();
-			return CliArgsBuilder.buildCodexArgs(prompt, sessionId, bypass);
+			var isBypass = settings.isBypassApprovals();
+			var model = settings.getSelectedModel(cliName);
+			return CliArgsBuilder.buildCodexArgs(prompt, sessionId, isBypass, model);
 		}
 
 		@Override
@@ -72,6 +76,28 @@ public enum AiProvider {
 
 	AiProvider(String cliName) {
 		this.cliName = cliName;
+	}
+
+	/**
+	 * default-models.json 리소스에서 로드한 기본 모델 목록
+	 */
+	public List<AiModel> getDefaultModels() {
+		return DefaultModelLoader.getModels(cliName);
+	}
+
+	/**
+	 * 기본 모델 + 사용자 커스텀 모델을 합쳐서 반환
+	 */
+	public List<AiModel> getAllModels() {
+		var defaults = getDefaultModels();
+		var settings = AiAgentSettings.getInstanceOrDefaults();
+		var customModels = settings.getCustomModels(cliName);
+		if (customModels.isEmpty()) {
+			return defaults;
+		}
+		var all = new ArrayList<>(defaults);
+		all.addAll(customModels);
+		return List.copyOf(all);
 	}
 
 	protected abstract List<String> buildRunArgs(String prompt, String sessionId, String workDir);

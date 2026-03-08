@@ -1,8 +1,11 @@
 package io.github.eottabom.aiagents.toolwindow;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.ui.jcef.JBCefBrowser;
+import io.github.eottabom.aiagents.providers.AiModel;
 
 import java.util.List;
 import java.util.Locale;
@@ -50,6 +53,26 @@ class JsBridgeClientNotifier {
 					}
 				}
 				""".formatted(GSON.toJson(refsJson)));
+	}
+
+	void sendModels(String cli, List<AiModel> models, String selectedModelId) {
+		var modelsArray = new JsonArray();
+		for (AiModel model : models) {
+			var obj = new JsonObject();
+			obj.addProperty("id", model.id());
+			obj.addProperty("displayName", model.displayName());
+			modelsArray.add(obj);
+		}
+		var payload = new JsonObject();
+		payload.addProperty("cli", cli);
+		payload.add("models", modelsArray);
+		payload.addProperty("selected", selectedModelId != null ? selectedModelId : "");
+		js("window.__onModels && window.__onModels(%s)".formatted(GSON.toJson(payload)));
+	}
+
+	void sendModelChanged(String cli, String modelId) {
+		js("window.__onModelChanged && window.__onModelChanged(%s, %s)"
+				.formatted(GSON.toJson(cli), GSON.toJson(modelId != null ? modelId : "")));
 	}
 
 	void sendChunk(String cli, String text) {
