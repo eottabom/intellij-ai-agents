@@ -11,6 +11,7 @@ enum BridgeMessageType {
 	GET_PROJECT_REFS,
 	GET_MODELS,
 	SET_MODEL,
+	OPEN_SETTINGS,
 	UNKNOWN;
 
 	static BridgeMessageType fromString(String value) {
@@ -26,6 +27,7 @@ enum BridgeMessageType {
 			case "getprojectrefs" -> GET_PROJECT_REFS;
 			case "getmodels" -> GET_MODELS;
 			case "setmodel" -> SET_MODEL;
+			case "opensettings" -> OPEN_SETTINGS;
 			default -> UNKNOWN;
 		};
 	}

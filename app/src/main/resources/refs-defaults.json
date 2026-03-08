@@ -1,0 +1,15 @@
+{
+  "ignoreDirs": [
+    ".git", ".idea", ".gradle", ".intellijplatform",
+    "build", "dist", "node_modules", "target", "out"
+  ],
+  "refExtensions": [
+    "java", "kt", "kts",
+    "ts", "tsx", "js", "jsx",
+    "json", "md", "xml",
+    "yml", "yaml", "properties"
+  ],
+  "classExtensions": [
+    "java", "kt", "kts"
+  ]
+}

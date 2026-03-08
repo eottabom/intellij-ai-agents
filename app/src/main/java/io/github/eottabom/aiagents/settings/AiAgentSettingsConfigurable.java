@@ -20,6 +20,8 @@ public class AiAgentSettingsConfigurable implements Configurable {
 
 	private JTextField refsConfigPathField;
 	private JTextArea extraIgnoredDirsArea;
+	private JTextField refExtensionsField;
+	private JTextField classExtensionsField;
 	private JCheckBox skipPermissionsCheckBox;
 	private JCheckBox bypassApprovalsCheckBox;
 	private JCheckBox geminiYoloModeCheckBox;
@@ -64,8 +66,22 @@ public class AiAgentSettingsConfigurable implements Configurable {
 		formPanel.add(new JScrollPane(extraIgnoredDirsArea), constraints);
 
 		constraints.gridy++;
-		var hintLabel = new JLabel("<html>Config file example: <code>{\"ignoreDirs\":[\"coverage\",\"tmp\"]}</code></html>");
+		var hintLabel = new JLabel("<html>Config file example: <code>{\"ignoreDirs\":[\"coverage\"],\"refExtensions\":[\"java\",\"py\"]}</code></html>");
 		formPanel.add(hintLabel, constraints);
+
+		constraints.gridy++;
+		formPanel.add(Box.createVerticalStrut(8), constraints);
+		constraints.gridy++;
+		formPanel.add(new JLabel("File extensions for project refs (comma separated, e.g. java,kt,ts,py)"), constraints);
+		constraints.gridy++;
+		refExtensionsField = new JTextField();
+		formPanel.add(refExtensionsField, constraints);
+
+		constraints.gridy++;
+		formPanel.add(new JLabel("Class extensions — shown as 'class' kind in autocomplete (comma separated)"), constraints);
+		constraints.gridy++;
+		classExtensionsField = new JTextField();
+		formPanel.add(classExtensionsField, constraints);
 
 		addModelSelectionSection(formPanel, constraints);
 		addSecurityFlagsSection(formPanel, constraints);
@@ -226,7 +242,13 @@ public class AiAgentSettingsConfigurable implements Configurable {
 		if (!savedPath.equals(currentPath)) {
 			return true;
 		}
-		return !settings.getExtraIgnoredDirsRaw().equals(extraIgnoredDirsArea.getText());
+		if (!settings.getExtraIgnoredDirsRaw().equals(extraIgnoredDirsArea.getText())) {
+			return true;
+		}
+		if (!settings.getRefExtensionsRaw().equals(refExtensionsField.getText())) {
+			return true;
+		}
+		return !settings.getClassExtensionsRaw().equals(classExtensionsField.getText());
 	}
 
 	private boolean isSecurityFlagsModified(AiAgentSettings settings) {
@@ -258,6 +280,8 @@ public class AiAgentSettingsConfigurable implements Configurable {
 
 		settings.setRefsConfigPath(refsConfigPathField.getText().trim());
 		settings.setExtraIgnoredDirsRaw(extraIgnoredDirsArea.getText());
+		settings.setRefExtensionsRaw(refExtensionsField.getText());
+		settings.setClassExtensionsRaw(classExtensionsField.getText());
 		settings.setSkipPermissions(skipPermissionsCheckBox.isSelected());
 		settings.setBypassApprovals(bypassApprovalsCheckBox.isSelected());
 		settings.setGeminiYoloMode(geminiYoloModeCheckBox.isSelected());
@@ -285,6 +309,8 @@ public class AiAgentSettingsConfigurable implements Configurable {
 
 		refsConfigPathField.setText(settings.getRefsConfigPath());
 		extraIgnoredDirsArea.setText(settings.getExtraIgnoredDirsRaw());
+		refExtensionsField.setText(settings.getRefExtensionsRaw());
+		classExtensionsField.setText(settings.getClassExtensionsRaw());
 		skipPermissionsCheckBox.setSelected(settings.isSkipPermissions());
 		bypassApprovalsCheckBox.setSelected(settings.isBypassApprovals());
 		geminiYoloModeCheckBox.setSelected(settings.isGeminiYoloMode());
@@ -345,6 +371,8 @@ public class AiAgentSettingsConfigurable implements Configurable {
 	public void disposeUIResources() {
 		refsConfigPathField = null;
 		extraIgnoredDirsArea = null;
+		refExtensionsField = null;
+		classExtensionsField = null;
 		skipPermissionsCheckBox = null;
 		bypassApprovalsCheckBox = null;
 		geminiYoloModeCheckBox = null;

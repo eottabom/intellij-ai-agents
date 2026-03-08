@@ -9,7 +9,7 @@ export interface ProjectRef { symbol: string; path: string; kind: 'class' | 'fil
 export interface AiModel { id: string; displayName: string }
 export interface ModelsPayload { cli: CliName; models: AiModel[]; selected: string }
 
-export type BridgeMessageType = 'chat' | 'cancel' | 'getSession' | 'clearSession' | 'clearAllSessions' | 'getProjectRefs' | 'getModels' | 'setModel'
+export type BridgeMessageType = 'chat' | 'cancel' | 'getSession' | 'clearSession' | 'clearAllSessions' | 'getProjectRefs' | 'getModels' | 'setModel' | 'openSettings'
 
 interface BridgePayload {
   type: BridgeMessageType
@@ -75,4 +75,8 @@ export const bridge = {
   /** 모델 변경 */
   setModel: (cli: CliName, model: string) =>
     send({ type: 'setModel', cli, model }),
+
+  /** Settings 열기 */
+  openSettings: () =>
+    send({ type: 'openSettings' }),
 }
